@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { File01, DownloadCloud01, CheckCircle, Clock, AlertCircle, XClose } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
 
+const DRAFT_BADGE = { cls: 'bg-gray-100 text-gray-700', label: 'Draft', icon: File01 };
+
 const STATUS_BADGE: Record<string, { cls: string; label: string; icon: typeof CheckCircle }> = {
-  DRAFT:          { cls: 'bg-gray-100 text-gray-700',   label: 'Draft',          icon: File01 },
+  DRAFT:          DRAFT_BADGE,
   SENT:           { cls: 'bg-blue-100 text-blue-700',   label: 'Sent',           icon: Clock },
   PAID:           { cls: 'bg-green-100 text-green-700', label: 'Paid',           icon: CheckCircle },
   PARTIALLY_PAID: { cls: 'bg-amber-100 text-amber-700', label: 'Partial',        icon: Clock },
@@ -48,7 +50,7 @@ export default function InvoicesPage() {
             </thead>
             <tbody className="divide-y">
               {invoices.map((inv: any) => {
-                const badge = STATUS_BADGE[inv.status] ?? STATUS_BADGE.DRAFT;
+                const badge = STATUS_BADGE[inv.status] ?? DRAFT_BADGE;
                 const BadgeIcon = badge.icon;
                 const isOverdue = inv.status !== 'PAID' && inv.status !== 'CANCELLED' && new Date(inv.dueDate) < new Date();
                 return (

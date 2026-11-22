@@ -77,7 +77,7 @@ export default function AssignmentsPage() {
     for (const pkg of rawPackages) {
       if (!pkg.rider || !['ASSIGNED','PICKED_UP','IN_TRANSIT'].includes(pkg.status)) continue;
       const key = `${pkg.rider.user.firstName} ${pkg.rider.user.lastName}`;
-      if (!map.has(key)) map.set(key, { name: key, count: 0, color: COLORS[idx++ % COLORS.length] });
+      if (!map.has(key)) map.set(key, { name: key, count: 0, color: COLORS[idx++ % COLORS.length] ?? 'bg-blue-500' });
       map.get(key)!.count++;
     }
     return [...map.values()].sort((a, b) => b.count - a.count);

@@ -126,7 +126,7 @@ function NotificationBell() {
 
           <div className="border-t px-4 py-2.5">
             <Link href="/packages" onClick={() => setOpen(false)} className="block text-center text-xs text-primary hover:underline">
-              View all packages ->
+              View all packages &rarr;
             </Link>
           </div>
         </div>
@@ -182,4 +182,3 @@ export function StaffHeader({ onMenuToggle, onSearchOpen }: { onMenuToggle?: () 
     </header>
   );
 }
-

@@ -157,7 +157,7 @@ function PackagesContent() {
       return [p.trackingNumber, p.sender?.name ?? '', p.recipient?.name ?? '', p.destCity ?? '', p.status,
         a ? `${a.rider.user.firstName} ${a.rider.user.lastName}` : '', new Date(p.createdAt).toLocaleDateString()];
     })];
-    const csv = lines.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const csv = lines.map((r: unknown[]) => r.map((v: unknown) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const link = document.createElement('a');
     link.href = 'data:text/csv,' + encodeURIComponent(csv);
     link.download = `packages-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -458,4 +458,3 @@ export default function PackagesPage() {
     </Suspense>
   );
 }
-
