@@ -67,7 +67,7 @@ export class VehiclesService {
       model: string;
       year: number;
       type: string;
-      status: string;
+      status: 'ACTIVE' | 'INACTIVE' | 'MAINTENANCE';
       assignedRiderId: string | null;
       insuranceExpiry: string | null;
       inspectionExpiry: string | null;
@@ -76,11 +76,24 @@ export class VehiclesService {
     }>,
   ) {
     await this.findOne(id);
-    const { insuranceExpiry, inspectionExpiry, year, odometerKm, ...rest } = dto;
+    const {
+      insuranceExpiry,
+      inspectionExpiry,
+      year,
+      odometerKm,
+      assignedRiderId,
+      ...rest
+    } = dto;
     return this.prisma.vehicle.update({
       where: { id },
       data: {
         ...rest,
+        ...(assignedRiderId !== undefined && {
+          assignedRider:
+            assignedRiderId === null
+              ? { disconnect: true }
+              : { connect: { id: assignedRiderId } },
+        }),
         ...(year !== undefined && { year: Number(year) }),
         ...(odometerKm !== undefined && { odometerKm: Number(odometerKm) }),
         ...(insuranceExpiry !== undefined && {
