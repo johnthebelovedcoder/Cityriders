@@ -1,0 +1,13 @@
+{
+  "extends": "@cityrider/config/tsconfig/nestjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "dist",
+    "paths": {
+      "@cityrider/database": ["../../packages/database/src/index.ts"],
+      "@cityrider/types": ["../../packages/types/src/index.ts"],
+      "@cityrider/utils": ["../../packages/utils/src/index.ts"]
+    }
+  },
+  "include": ["src"]
+}

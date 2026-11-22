@@ -1,0 +1,781 @@
+// ─── Prisma Schema ────────────────────────────────────────────────────────────
+// CityRider — Logistics Management System
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMINISTRATOR
+  MANAGER
+  ACCOUNTANT
+  DISPATCHER
+  RIDER
+  CEO_EXECUTIVE
+  CUSTOMER_SERVICE
+  CUSTOMER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RiderStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CustomerType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum PaymentTerms {
+  PREPAY
+  INVOICE
+  COD
+}
+
+enum BillingCycle {
+  WEEKLY
+  MONTHLY
+}
+
+enum CustomerStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum VehicleStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum PackageStatus {
+  // Phase 1 (legacy — kept for data compat)
+  REGISTERED
+  AWAITING_ASSIGNMENT
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  DELIVERY_ATTEMPTED
+  RETURNED
+  CANCELLED
+  // Phase 2 — full lifecycle
+  PENDING
+  COLLECTED
+  RECEIVED_AT_OFFICE
+  SORTED
+  DISPATCHED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RESCHEDULED
+  ON_HOLD
+}
+
+enum ProofOfDeliveryType {
+  SIGNATURE
+  PHOTO
+  OTP_CODE
+  RECIPIENT_NAME
+}
+
+enum FailedDeliveryReason {
+  RECIPIENT_NOT_AVAILABLE
+  WRONG_ADDRESS
+  REFUSED_DELIVERY
+  ACCESS_ISSUE
+  OTHER
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  POS
+  ONLINE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  REFUNDED
+  CANCELLED
+}
+
+enum ExpenseCategory {
+  FUEL
+  MAINTENANCE
+  RIDER_COMPENSATION
+  OFFICE
+  MARKETING
+  OTHER
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  ASSIGN
+  REASSIGN
+  STATUS_CHANGE
+  LOGIN
+  LOGOUT
+}
+
+enum InteractionChannel {
+  PHONE
+  EMAIL
+  WHATSAPP
+  IN_PERSON
+  CHAT
+  OTHER
+}
+
+enum EscalationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum EscalationStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+// ─── Users & Auth ────────────────────────────────────────────────────────────
+
+model User {
+  id          String     @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String     @unique
+  password    String
+  phone       String?
+  role        UserRole   @default(DISPATCHER)
+  status      UserStatus @default(ACTIVE)
+  lastLoginAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Relations
+  rider                   Rider?
+  packagesCreated         Package[]             @relation("PackageCreatedBy")
+  packagesUpdated         PackageStatusEvent[]
+  assignmentsCreated      Assignment[]          @relation("AssignmentCreatedBy")
+  paymentsRecorded        Payment[]
+  expensesRecorded        Expense[]
+  auditLogs               AuditLog[]
+  proofsSubmitted         ProofOfDelivery[]
+  passwordResetTokens     PasswordResetToken[]
+  manifestsCreated        DispatchManifest[]    @relation("ManifestCreatedBy")
+  invoicesCreated         Invoice[]             @relation("InvoiceCreatedBy")
+  invoicePaymentsRecorded InvoicePayment[]      @relation("InvoicePaymentRecordedBy")
+  codRemittancesConfirmed CODRemittance[]       @relation("CODConfirmedBy")
+  interactions            CustomerInteraction[] @relation("InteractionStaff")
+  escalationsRaised       Escalation[]          @relation("EscalationRaisedBy")
+  payrollPaid             PayrollRecord[]       @relation("PayrollPaidBy")
+
+  @@map("users")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// ─── Riders ──────────────────────────────────────────────────────────────────
+
+model Rider {
+  id             String      @id @default(cuid())
+  userId         String      @unique
+  riderId        String?     @unique
+  vehicleType    String?
+  vehiclePlate   String?
+  status         RiderStatus @default(ACTIVE)
+  zoneId         String?
+  latitude       Float?
+  longitude      Float?
+  lastLocationAt DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  zone           Zone?              @relation("RiderZone", fields: [zoneId], references: [id])
+  assignments    Assignment[]
+  expenses       Expense[]
+  vehicles       Vehicle[]
+  manifests      DispatchManifest[]
+  codRemittances CODRemittance[]
+  payrollRecords PayrollRecord[]
+
+  @@map("riders")
+}
+
+// ─── Vehicles ────────────────────────────────────────────────────────────────
+
+model Vehicle {
+  id               String        @id @default(cuid())
+  plateNumber      String        @unique
+  make             String
+  model            String
+  year             Int
+  type             String
+  status           VehicleStatus @default(ACTIVE)
+  assignedRiderId  String?
+  insuranceExpiry  DateTime?
+  inspectionExpiry DateTime?
+  odometerKm       Float         @default(0)
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  assignedRider Rider?    @relation(fields: [assignedRiderId], references: [id])
+  expenses      Expense[]
+
+  @@map("vehicles")
+}
+
+// ─── Customers & Recipients ──────────────────────────────────────────────────
+
+model Customer {
+  id           String         @id @default(cuid())
+  name         String
+  phone        String
+  email        String?
+  address      String?
+  type         CustomerType   @default(INDIVIDUAL)
+  creditLimit  Decimal?       @db.Decimal(12, 2)
+  paymentTerms PaymentTerms   @default(PREPAY)
+  billingCycle BillingCycle   @default(MONTHLY)
+  status       CustomerStatus @default(ACTIVE)
+  taxId        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  packages     Package[]             @relation("PackageSender")
+  payments     Payment[]
+  invoices     Invoice[]
+  interactions CustomerInteraction[]
+  escalations  Escalation[]
+
+  @@map("customers")
+}
+
+model Recipient {
+  id              String   @id @default(cuid())
+  name            String
+  phone           String
+  email           String?
+  deliveryAddress String
+  deliveryNotes   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  packages Package[] @relation("PackageRecipient")
+
+  @@map("recipients")
+}
+
+// ─── Packages ────────────────────────────────────────────────────────────────
+
+model Package {
+  id                  String        @id @default(cuid())
+  trackingNumber      String        @unique
+  orderReference      String?
+  description         String?
+  weight              Float?
+  dimensionsLength    Float?
+  dimensionsWidth     Float?
+  dimensionsHeight    Float?
+  dimensionsUnit      String?       @default("cm")
+  declaredValue       Decimal?      @db.Decimal(12, 2)
+  deliveryFee         Decimal?      @db.Decimal(12, 2)
+  currency            String        @default("NGN")
+  specialInstructions String?
+  internalNotes       String?
+  status              PackageStatus @default(REGISTERED)
+
+  // Origin
+  originStreet     String
+  originCity       String
+  originState      String?
+  originCountry    String
+  originPostalCode String?
+  originLandmark   String?
+
+  // Destination
+  destStreet     String
+  destCity       String
+  destState      String?
+  destCountry    String
+  destPostalCode String?
+  destLandmark   String?
+
+  senderId    String
+  recipientId String
+  createdById String
+  fromZoneId  String?
+  toZoneId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  sender      Customer  @relation("PackageSender", fields: [senderId], references: [id])
+  recipient   Recipient @relation("PackageRecipient", fields: [recipientId], references: [id])
+  createdBy   User      @relation("PackageCreatedBy", fields: [createdById], references: [id])
+  reattemptAt DateTime?
+  manifestId  String?
+  invoicedAt  DateTime?
+
+  statusHistory    PackageStatusEvent[]
+  assignments      Assignment[]
+  proofOfDelivery  ProofOfDelivery?
+  payments         Payment[]
+  expenses         Expense[]
+  manifest         DispatchManifest?     @relation(fields: [manifestId], references: [id])
+  invoiceLineItems InvoiceLineItem[]
+  codRemittance    CODRemittance?
+  interactions     CustomerInteraction[]
+  escalations      Escalation[]
+
+  @@index([trackingNumber])
+  @@index([status])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("packages")
+}
+
+model PackageStatusEvent {
+  id                  String                @id @default(cuid())
+  packageId           String
+  status              PackageStatus
+  note                String?
+  failedReason        FailedDeliveryReason?
+  failureReasonCodeId String?
+  reattemptAt         DateTime?
+  isCustomerVisible   Boolean               @default(true)
+  performedById       String
+  createdAt           DateTime              @default(now())
+
+  package           Package            @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  performedBy       User               @relation(fields: [performedById], references: [id])
+  failureReasonCode FailureReasonCode? @relation(fields: [failureReasonCodeId], references: [id])
+
+  @@index([packageId])
+  @@index([createdAt])
+  @@map("package_status_events")
+}
+
+model FailureReasonCode {
+  id       String  @id @default(cuid())
+  code     String  @unique
+  label    String
+  isActive Boolean @default(true)
+
+  statusEvents PackageStatusEvent[]
+
+  @@map("failure_reason_codes")
+}
+
+model DispatchManifest {
+  id           String   @id @default(cuid())
+  riderId      String
+  createdById  String
+  dispatchedAt DateTime @default(now())
+  pdfUrl       String?
+  createdAt    DateTime @default(now())
+
+  rider     Rider     @relation(fields: [riderId], references: [id])
+  createdBy User      @relation("ManifestCreatedBy", fields: [createdById], references: [id])
+  packages  Package[]
+
+  @@map("dispatch_manifests")
+}
+
+// ─── Assignments ─────────────────────────────────────────────────────────────
+
+model Assignment {
+  id                   String    @id @default(cuid())
+  packageId            String
+  riderId              String
+  assignedById         String
+  reassignmentReason   String?
+  previousAssignmentId String?
+  isActive             Boolean   @default(true)
+  assignedAt           DateTime  @default(now())
+  unassignedAt         DateTime?
+
+  package            Package      @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  rider              Rider        @relation(fields: [riderId], references: [id])
+  assignedBy         User         @relation("AssignmentCreatedBy", fields: [assignedById], references: [id])
+  previousAssignment Assignment?  @relation("AssignmentHistory", fields: [previousAssignmentId], references: [id])
+  nextAssignments    Assignment[] @relation("AssignmentHistory")
+
+  @@index([packageId])
+  @@index([riderId])
+  @@index([isActive])
+  @@map("assignments")
+}
+
+// ─── Proof of Delivery ───────────────────────────────────────────────────────
+
+model ProofOfDelivery {
+  id            String              @id @default(cuid())
+  packageId     String              @unique
+  type          ProofOfDeliveryType
+  recipientName String?
+  otpCode       String?
+  photoUrl      String?
+  signatureUrl  String?
+  notes         String?
+  submittedById String
+  submittedAt   DateTime            @default(now())
+
+  package     Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  submittedBy User    @relation(fields: [submittedById], references: [id])
+
+  @@map("proof_of_deliveries")
+}
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+model Payment {
+  id           String        @id @default(cuid())
+  amount       Decimal       @db.Decimal(12, 2)
+  currency     String        @default("NGN")
+  method       PaymentMethod
+  status       PaymentStatus @default(COMPLETED)
+  reference    String?
+  notes        String?
+  packageId    String?
+  customerId   String?
+  recordedById String
+  paymentDate  DateTime
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  package     Package?            @relation(fields: [packageId], references: [id])
+  customer    Customer?           @relation(fields: [customerId], references: [id])
+  recordedBy  User                @relation(fields: [recordedById], references: [id])
+  corrections PaymentCorrection[]
+
+  @@index([paymentDate])
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentCorrection {
+  id             String   @id @default(cuid())
+  paymentId      String
+  correctedById  String
+  previousAmount Decimal  @db.Decimal(12, 2)
+  newAmount      Decimal  @db.Decimal(12, 2)
+  reason         String
+  createdAt      DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_corrections")
+}
+
+// ─── Expenses ────────────────────────────────────────────────────────────────
+
+model Expense {
+  id            String          @id @default(cuid())
+  amount        Decimal         @db.Decimal(12, 2)
+  currency      String          @default("NGN")
+  category      ExpenseCategory
+  description   String
+  payee         String?
+  attachmentUrl String?
+  packageId     String?
+  riderId       String?
+  vehicleId     String?
+  recordedById  String
+  expenseDate   DateTime
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  package    Package? @relation(fields: [packageId], references: [id])
+  rider      Rider?   @relation(fields: [riderId], references: [id])
+  vehicle    Vehicle? @relation(fields: [vehicleId], references: [id])
+  recordedBy User     @relation(fields: [recordedById], references: [id])
+
+  @@index([expenseDate])
+  @@index([category])
+  @@map("expenses")
+}
+
+// ─── System Settings ─────────────────────────────────────────────────────────
+
+model SystemSettings {
+  id                       String   @id @default("default")
+  companyName              String   @default("CityRider Logistics")
+  address                  String?
+  phone                    String?
+  email                    String?
+  currency                 String   @default("NGN")
+  flatDeliveryFee          Decimal  @default(1500) @db.Decimal(12, 2)
+  weightSurcharge          Decimal  @default(200) @db.Decimal(12, 2)
+  expenseApprovalThreshold Decimal  @default(20000) @db.Decimal(12, 2)
+  lowCreditThreshold       Decimal  @default(5000) @db.Decimal(12, 2)
+  smsEnabled               Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  zones Zone[]
+
+  @@map("system_settings")
+}
+
+model Zone {
+  id         String   @id @default(cuid())
+  settingsId String   @default("default")
+  name       String
+  basePrice  Decimal  @db.Decimal(12, 2)
+  createdAt  DateTime @default(now())
+
+  settings    SystemSettings  @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+  riders      Rider[]         @relation("RiderZone")
+  pricingFrom PricingMatrix[] @relation("PricingFromZone")
+  pricingTo   PricingMatrix[] @relation("PricingToZone")
+
+  @@map("zones")
+}
+
+model PricingMatrix {
+  id            String   @id @default(cuid())
+  fromZoneId    String
+  toZoneId      String
+  baseRate      Decimal  @db.Decimal(12, 2)
+  perKgRate     Decimal  @default(0) @db.Decimal(12, 2)
+  effectiveFrom DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  fromZone Zone @relation("PricingFromZone", fields: [fromZoneId], references: [id], onDelete: Cascade)
+  toZone   Zone @relation("PricingToZone", fields: [toZoneId], references: [id], onDelete: Cascade)
+
+  @@unique([fromZoneId, toZoneId])
+  @@map("pricing_matrix")
+}
+
+// ─── Audit Logs ──────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  userId        String
+  action        AuditAction
+  entity        String
+  entityId      String
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─── Invoices ────────────────────────────────────────────────────────────────
+
+model Invoice {
+  id                 String        @id @default(cuid())
+  invoiceNumber      String        @unique
+  customerId         String
+  status             InvoiceStatus @default(DRAFT)
+  subtotal           Decimal       @db.Decimal(12, 2)
+  vatRate            Decimal       @default(0.075) @db.Decimal(5, 4)
+  vatAmount          Decimal       @db.Decimal(12, 2)
+  totalAmount        Decimal       @db.Decimal(12, 2)
+  dueDate            DateTime
+  billingPeriodStart DateTime
+  billingPeriodEnd   DateTime
+  notes              String?
+  pdfUrl             String?
+  sentAt             DateTime?
+  createdById        String
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  customer  Customer          @relation(fields: [customerId], references: [id])
+  createdBy User              @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
+  lineItems InvoiceLineItem[]
+  payments  InvoicePayment[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id             String   @id @default(cuid())
+  invoiceId      String
+  packageId      String?
+  trackingNumber String?
+  description    String
+  quantity       Int      @default(1)
+  unitPrice      Decimal  @db.Decimal(12, 2)
+  lineTotal      Decimal  @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  package Package? @relation(fields: [packageId], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+model InvoicePayment {
+  id           String        @id @default(cuid())
+  invoiceId    String
+  amount       Decimal       @db.Decimal(12, 2)
+  method       PaymentMethod
+  reference    String?
+  notes        String?
+  recordedById String
+  recordedAt   DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  recordedBy User    @relation("InvoicePaymentRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_payments")
+}
+
+// ─── COD Remittance ──────────────────────────────────────────────────────────
+
+model CODRemittance {
+  id              String    @id @default(cuid())
+  riderId         String
+  packageId       String    @unique
+  expectedAmount  Decimal   @db.Decimal(12, 2)
+  collectedAmount Decimal?  @db.Decimal(12, 2)
+  remittedAt      DateTime?
+  confirmedById   String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  rider       Rider   @relation(fields: [riderId], references: [id])
+  package     Package @relation(fields: [packageId], references: [id])
+  confirmedBy User?   @relation("CODConfirmedBy", fields: [confirmedById], references: [id])
+
+  @@index([riderId])
+  @@map("cod_remittances")
+}
+
+// ─── Customer Service ─────────────────────────────────────────────────────────
+
+model CustomerInteraction {
+  id          String             @id @default(cuid())
+  packageId   String?
+  customerId  String
+  staffId     String
+  channel     InteractionChannel
+  summary     String
+  actionTaken String?
+  outcome     String?
+  createdAt   DateTime           @default(now())
+
+  package  Package? @relation(fields: [packageId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
+  staff    User     @relation("InteractionStaff", fields: [staffId], references: [id])
+
+  @@index([customerId])
+  @@index([packageId])
+  @@index([createdAt])
+  @@map("customer_interactions")
+}
+
+model Escalation {
+  id              String             @id @default(cuid())
+  packageId       String?
+  customerId      String?
+  raisedById      String
+  reason          String
+  priority        EscalationPriority @default(MEDIUM)
+  requestedAction String
+  status          EscalationStatus   @default(OPEN)
+  resolution      String?
+  resolvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  package  Package?  @relation(fields: [packageId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  raisedBy User      @relation("EscalationRaisedBy", fields: [raisedById], references: [id])
+
+  @@index([status])
+  @@index([packageId])
+  @@index([customerId])
+  @@map("escalations")
+}
+
+// ─── Payroll ──────────────────────────────────────────────────────────────────
+
+enum PayrollStatus {
+  DRAFT
+  PENDING
+  PAID
+}
+
+model PayrollRecord {
+  id              String        @id @default(cuid())
+  riderId         String
+  period          String // "YYYY-MM"
+  deliveries      Int           @default(0)
+  ratePerDelivery Float         @default(5000)
+  bonus           Float         @default(0)
+  total           Float         @default(0)
+  status          PayrollStatus @default(DRAFT)
+  paidAt          DateTime?
+  paidById        String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  rider  Rider @relation(fields: [riderId], references: [id])
+  paidBy User? @relation("PayrollPaidBy", fields: [paidById], references: [id])
+
+  @@unique([riderId, period])
+  @@index([period])
+  @@map("payroll_records")
+}

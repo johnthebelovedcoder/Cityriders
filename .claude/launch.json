@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cityrider-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@cityrider/web", "dev"],
+      "port": 3000,
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "cityrider-api",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@cityrider/api", "dev"],
+      "port": 4000,
+      "url": "http://localhost:4000"
+    }
+  ]
+}

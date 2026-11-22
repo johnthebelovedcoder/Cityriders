@@ -1,0 +1,14 @@
+{
+  "extends": "@cityrider/config/tsconfig/nextjs.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@cityrider/ui": ["../../packages/ui/src/index.ts"],
+      "@cityrider/types": ["../../packages/types/src/index.ts"],
+      "@cityrider/utils": ["../../packages/utils/src/index.ts"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
