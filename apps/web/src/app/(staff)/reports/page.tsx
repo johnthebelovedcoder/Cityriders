@@ -462,6 +462,10 @@ function YearOnYearReport({ data }: { data: any }) {
     return <span className={`text-xs font-semibold ml-1 ${p >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{p >= 0 ? '+' : ''}{p}% YoY</span>;
   };
 
+  if (!data?.thisYear || !data?.lastYear) {
+    return <div className="p-8 text-center text-muted-foreground text-sm">Loading year-on-year data…</div>;
+  }
+
   return (
     <div className="space-y-6">
       {/* KPI comparison cards */}

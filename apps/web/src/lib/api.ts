@@ -193,6 +193,14 @@ const MOCK_DB: Record<string, any> = {
     { id: 'p9', trackingNumber: 'CRD-MK0000009', status: 'DELIVERED', recipient: { name: 'Kemi Ade', area: 'Abuja' }, weight: 1.5, rider: { user: { firstName: 'Emeka', lastName: 'Obi' }, zone: { id: 'z1', name: 'Lagos Island' } } },
   ],
 
+  // -- Kanban package detail entries (p4-p9) ------------------------------------
+  'get /packages/p4': { id: 'p4', trackingNumber: 'CRD-MK0000004', status: 'AWAITING_ASSIGNMENT', description: 'Documents', weight: 1.0, deliveryFee: 1500, specialInstructions: null, createdAt: new Date(Date.now() - 86400000).toISOString(), sender: { name: 'Alice Corp', phone: '+2348001234567', email: 'alice@example.com' }, recipient: { name: 'Chidi Nkem', phone: '+2348011234567', deliveryAddress: '5 Victoria Island, Lagos' }, destCity: 'Lagos', zoneId: 'z2', statusHistory: [{ id: 'sh-p4-1', status: 'AWAITING_ASSIGNMENT', note: null, createdAt: new Date(Date.now() - 86400000).toISOString() }] },
+  'get /packages/p5': { id: 'p5', trackingNumber: 'CRD-MK0000005', status: 'ASSIGNED', description: 'Household goods', weight: 3.0, deliveryFee: 2200, specialInstructions: null, createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), sender: { name: 'Alice Corp', phone: '+2348001234567', email: 'alice@example.com' }, recipient: { name: 'Tunde Adex', phone: '+2348021234567', deliveryAddress: '10 Allen Ave, Ikeja' }, destCity: 'Ikeja', zoneId: 'z3', statusHistory: [{ id: 'sh-p5-1', status: 'AWAITING_ASSIGNMENT', note: null, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() }, { id: 'sh-p5-2', status: 'ASSIGNED', note: 'Assigned to Fatima', createdAt: new Date(Date.now() - 86400000).toISOString() }] },
+  'get /packages/p6': { id: 'p6', trackingNumber: 'CRD-MK0000006', status: 'PICKED_UP', description: 'Clothing', weight: 0.5, deliveryFee: 1200, specialInstructions: null, createdAt: new Date(Date.now() - 86400000 * 3).toISOString(), sender: { name: 'Beta Ltd', phone: '+2348012345678', email: 'beta@example.com' }, recipient: { name: 'Ngozi Obi', phone: '+2348031234567', deliveryAddress: '3 Herbert Macaulay Way, Yaba' }, destCity: 'Yaba', zoneId: 'z1', statusHistory: [{ id: 'sh-p6-1', status: 'AWAITING_ASSIGNMENT', note: null, createdAt: new Date(Date.now() - 86400000 * 3).toISOString() }, { id: 'sh-p6-2', status: 'ASSIGNED', note: null, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() }, { id: 'sh-p6-3', status: 'PICKED_UP', note: null, createdAt: new Date(Date.now() - 86400000).toISOString() }] },
+  'get /packages/p7': { id: 'p7', trackingNumber: 'CRD-MK0000007', status: 'IN_TRANSIT', description: 'Electronics', weight: 1.8, deliveryFee: 2000, specialInstructions: 'Fragile', createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), sender: { name: 'Alice Corp', phone: '+2348001234567', email: 'alice@example.com' }, recipient: { name: 'Aisha Bello', phone: '+2348041234567', deliveryAddress: '8 Bode Thomas, Surulere' }, destCity: 'Surulere', zoneId: 'z1', statusHistory: [{ id: 'sh-p7-1', status: 'AWAITING_ASSIGNMENT', note: null, createdAt: new Date(Date.now() - 86400000 * 2).toISOString() }, { id: 'sh-p7-2', status: 'IN_TRANSIT', note: 'Out for delivery', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() }] },
+  'get /packages/p8': { id: 'p8', trackingNumber: 'CRD-MK0000008', status: 'IN_TRANSIT', description: 'Books', weight: 4.2, deliveryFee: 2800, specialInstructions: null, createdAt: new Date(Date.now() - 86400000 * 4).toISOString(), sender: { name: 'Beta Ltd', phone: '+2348012345678', email: 'beta@example.com' }, recipient: { name: 'Emeka Chi', phone: '+2348051234567', deliveryAddress: '2 Apapa Road, Apapa' }, destCity: 'Apapa', zoneId: 'z1', statusHistory: [{ id: 'sh-p8-1', status: 'AWAITING_ASSIGNMENT', note: null, createdAt: new Date(Date.now() - 86400000 * 4).toISOString() }, { id: 'sh-p8-2', status: 'IN_TRANSIT', note: 'En route', createdAt: new Date(Date.now() - 86400000).toISOString() }] },
+  'get /packages/p9': { id: 'p9', trackingNumber: 'CRD-MK0000009', status: 'DELIVERED', description: 'Accessories', weight: 1.5, deliveryFee: 1600, specialInstructions: null, createdAt: new Date(Date.now() - 86400000 * 5).toISOString(), sender: { name: 'Alice Corp', phone: '+2348001234567', email: 'alice@example.com' }, recipient: { name: 'Kemi Ade', phone: '+2348061234567', deliveryAddress: '15 Wuse II, Abuja' }, destCity: 'Abuja', zoneId: 'z2', statusHistory: [{ id: 'sh-p9-1', status: 'AWAITING_ASSIGNMENT', note: null, createdAt: new Date(Date.now() - 86400000 * 5).toISOString() }, { id: 'sh-p9-2', status: 'IN_TRANSIT', note: null, createdAt: new Date(Date.now() - 86400000 * 3).toISOString() }, { id: 'sh-p9-3', status: 'DELIVERED', note: 'Delivered successfully', createdAt: new Date(Date.now() - 86400000 * 2).toISOString() }] },
+
   // -- Phase 3: Reports (P&L + Customer Activity) -------------------------------
   'get /reports/profit-loss': {
     revenue: 272000,
@@ -744,10 +752,21 @@ const MOCK_DB: Record<string, any> = {
     escalations: [],
   },
   'get /customer-service/interactions': [],
+  'get /customer-service/followups': [
+    { id: 'p1', trackingNumber: 'CRD-MK0000001', status: 'DELIVERY_ATTEMPTED', destCity: 'Lagos', followupDue: new Date(Date.now() + 3600000 * 2).toISOString(), recipient: { name: 'Bob Smith', phone: '+2348009876543' }, lastInteraction: 'Promised re-delivery tomorrow' },
+  ],
   'get /customer-service/escalations': [
     { id: 'e1', priority: 'HIGH', status: 'OPEN', reason: 'Package stuck in transit for 3 days', requestedAction: 'Contact rider and investigate', createdAt: new Date(Date.now() - 86400000).toISOString(), raisedBy: { firstName: 'Jane', lastName: 'Staff' }, package: { trackingNumber: 'CRD-MK0000001', status: 'IN_TRANSIT', destCity: 'Lagos' }, customer: { name: 'Alice Corp', phone: '+2348001234567' } },
     { id: 'e2', priority: 'URGENT', status: 'IN_PROGRESS', reason: 'Recipient claims package was damaged', requestedAction: 'Issue refund or replacement', createdAt: new Date(Date.now() - 86400000 * 2).toISOString(), raisedBy: { firstName: 'Jane', lastName: 'Staff' }, package: { trackingNumber: 'CRD-MK0000003', status: 'DELIVERED', destCity: 'Port Harcourt' }, customer: { name: 'Beta Ltd', phone: '+2348012345678' } },
   ],
+
+  // -- Receipt Reconciliation ---------------------------------------------------
+  'get /packages/reconciliation/pending': {
+    data: [
+      { id: 'p3', trackingNumber: 'CRD-MK0000003', updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(), sender: { name: 'Demo Sender' }, recipient: { name: 'Test User', address: '1 Aba Road, Port Harcourt' }, assignments: [{ rider: { user: { firstName: 'Fatima', lastName: 'Musa' } } }] },
+    ],
+    meta: { total: 1 },
+  },
 
   // -- Pickup Locations (keyed by customerId) ------------------------------------
   'get /pickup-locations/c1': [
@@ -928,6 +947,8 @@ function mockAdapter(config: any): Promise<any> {
     const r = { id: 'r' + uid(), status: 'ACTIVE', vehicleType: body.vehicleType ?? null, vehiclePlate: body.vehiclePlate ?? null, createdAt: new Date().toISOString(), user: { firstName: body.firstName ?? '', lastName: body.lastName ?? '', email: body.email ?? '', phone: body.phone ?? null } };
     (MOCK_DB['get /riders'] as any[]).push(r);
     (MOCK_DB['get /riders/active'] as any[]).push(r);
+    (MOCK_DB as any)['get /riders/' + r.id] = r;
+    (MOCK_DB as any)['get /riders/' + r.id + '/deliveries'] = [];
     return created(r);
   }
   if (method === 'patch' && /^\/riders\/[^/]+$/.test(path)) {
@@ -1048,6 +1069,7 @@ function mockAdapter(config: any): Promise<any> {
     const p = { id, trackingNumber: tn, status: 'AWAITING_ASSIGNMENT', createdAt: new Date().toISOString(), sender: { name: 'New Sender' }, recipient: { name: 'New Recipient' }, weight: body.weight ?? null, ...body };
     (MOCK_DB['get /packages'] as any).data.push(p);
     (MOCK_DB['get /packages/kanban'] as any[]).push({ id, trackingNumber: tn, status: 'AWAITING_ASSIGNMENT', recipient: { name: 'New Recipient', area: '' }, weight: body.weight ?? null });
+    (MOCK_DB as any)['get /packages/' + id] = { ...p, statusHistory: [{ id: 'sh-' + id, status: 'AWAITING_ASSIGNMENT', note: 'Package registered', createdAt: p.createdAt }] };
     return created(p);
   }
   if (method === 'patch' && /^\/packages\/[^/]+$/.test(path)) {
@@ -1252,6 +1274,39 @@ function mockAdapter(config: any): Promise<any> {
     return ok(item ?? {});
   }
 
+  // Reconciliation
+  if (method === 'patch' && /^\/packages\/[^/]+\/reconcile$/.test(path)) {
+    const pkgId = path.split('/')[2];
+    const rec = MOCK_DB['get /packages/reconciliation/pending'] as any;
+    if (rec?.data) {
+      const idx = rec.data.findIndex((p: any) => p.id === pkgId);
+      if (idx !== -1) { rec.data.splice(idx, 1); rec.meta.total = Math.max(0, rec.meta.total - 1); }
+    }
+    return ok({ ok: true });
+  }
+
+  // Settlements
+  if (method === 'post' && path === '/payments/settle') {
+    const payments = MOCK_DB['get /payments'] as any[];
+    if (Array.isArray(payments)) {
+      payments.forEach((p: any) => { if (p.status === 'Pending') p.status = 'Paid'; });
+    }
+    return ok({ ok: true, settled: payments?.filter((p: any) => p.status === 'Paid').length ?? 0 });
+  }
+
+  // Customer Service: customer summary and packages
+  if (method === 'get' && /^\/customer-service\/customers\/[^/]+\/summary$/.test(path)) {
+    const customerId = path.split('/')[3];
+    const allPkgs = (MOCK_DB['get /packages'] as any).data as any[];
+    const customerPkgs = allPkgs.filter((p: any) => p.senderId === customerId || p.customerId === customerId);
+    return ok({ totalPackages: customerPkgs.length, delivered: customerPkgs.filter((p: any) => p.status === 'DELIVERED').length, inTransit: customerPkgs.filter((p: any) => p.status === 'IN_TRANSIT').length, failed: customerPkgs.filter((p: any) => p.status === 'FAILED' || p.status === 'RETURNED').length });
+  }
+  if (method === 'get' && /^\/customer-service\/customers\/[^/]+\/packages$/.test(path)) {
+    const customerId = path.split('/')[3];
+    const allPkgs = (MOCK_DB['get /packages'] as any).data as any[];
+    return ok(allPkgs.filter((p: any) => p.senderId === customerId || p.customerId === customerId));
+  }
+
   // Vehicles CRUD
   if (method === 'get' && path === '/vehicles') {
     let list = [...(MOCK_DB['get /vehicles'] as any[])];
@@ -1414,6 +1469,32 @@ function mockAdapter(config: any): Promise<any> {
       (r.vehiclePlate ?? '').toLowerCase().includes(q)
     );
     return ok({ packages: matchPackages, customers: matchCustomers, riders: matchRiders });
+  }
+
+  // Dynamic individual GET for packages (falls back to packages list when no MOCK_DB entry)
+  const STATIC_PKG_PATHS = new Set(['stats', 'kanban', 'sla-alerts', 'reconciliation', 'bulk-status']);
+  if (method === 'get' && /^\/packages\/[^/]+$/.test(path)) {
+    const pkgId = path.split('/')[2];
+    if (!STATIC_PKG_PATHS.has(pkgId)) {
+      const existing = (MOCK_DB as any)[`get /packages/${pkgId}`];
+      if (existing) return ok(existing);
+      const all = (MOCK_DB['get /packages'] as any).data as any[];
+      const pkg = all.find((p: any) => p.id === pkgId);
+      return ok(pkg ?? null);
+    }
+  }
+
+  // Dynamic individual GET for riders (falls back to riders list when no MOCK_DB entry)
+  const STATIC_RIDER_PATHS = new Set(['stats', 'active', 'smart-dispatch']);
+  if (method === 'get' && /^\/riders\/[^/]+$/.test(path)) {
+    const riderId = path.split('/')[2];
+    if (!STATIC_RIDER_PATHS.has(riderId)) {
+      const existing = (MOCK_DB as any)[`get /riders/${riderId}`];
+      if (existing) return ok(existing);
+      const all = MOCK_DB['get /riders'] as any[];
+      const rider = all.find((r: any) => r.id === riderId);
+      return ok(rider ?? null);
+    }
   }
 
   // GET fallthrough
