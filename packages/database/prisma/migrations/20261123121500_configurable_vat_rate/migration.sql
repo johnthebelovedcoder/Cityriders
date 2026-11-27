@@ -1,0 +1,1 @@
+ALTER TABLE "system_settings" ADD COLUMN "vatRate" DECIMAL(5,4) NOT NULL DEFAULT 0;

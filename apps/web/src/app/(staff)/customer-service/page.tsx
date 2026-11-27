@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import LogInteractionDrawer from '@/components/customer-service/LogInteractionDrawer';
 import EscalateModal from '@/components/customer-service/EscalateModal';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
 
 type Tab = 'search' | 'escalations' | 'followup';
 
@@ -37,6 +39,7 @@ export default function CustomerServicePage() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>('search');
   const [q, setQ] = useState('');
+  const [summaryDate, setSummaryDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [submittedQ, setSubmittedQ] = useState('');
   const [selectedPkg, setSelectedPkg] = useState<any>(null);
   const [showLogDrawer, setShowLogDrawer] = useState(false);
@@ -58,24 +61,21 @@ export default function CustomerServicePage() {
   });
 
   const customerId = (pkgDetail as any)?.senderId;
+  const { data: customerSummary } = useQuery({
+    queryKey: ['cs-customer-summary', customerId, summaryDate],
+    queryFn: () => api.get(`/customer-service/customers/${customerId}/summary`, { params: { date: summaryDate } }).then((r) => r.data),
+    enabled: !!customerId,
+  });
   const { data: customerPackages } = useQuery({
     queryKey: ['cs-customer-packages', customerId],
-    queryFn: () => api.get('/packages', { params: { customerId, limit: 200 } }).then((r) => {
-      const data = r.data;
-      return Array.isArray(data) ? data : (data?.data ?? []);
-    }),
+    queryFn: () => api.get(`/customer-service/customers/${customerId}/packages`).then((r) => r.data),
     enabled: !!customerId,
     staleTime: 60_000,
   });
 
   const { data: followupPackages } = useQuery({
     queryKey: ['cs-followup'],
-    queryFn: () => api.get('/packages?status=DELIVERY_ATTEMPTED').then((r) => {
-      const list = Array.isArray(r.data) ? r.data : (r.data?.data ?? []);
-      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-      return list.filter((p: any) => !p.reattemptAt || new Date(p.reattemptAt).getTime() <= Date.now())
-                 .sort((a: any, b: any) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
-    }),
+    queryFn: () => api.get('/customer-service/followups').then((r) => r.data),
     enabled: tab === 'followup',
   });
 
@@ -139,15 +139,7 @@ export default function CustomerServicePage() {
         </div>
         {/* Mobile: dropdown */}
         <div className="sm:hidden">
-          <select
-            value={tab}
-            onChange={e => setTab(e.target.value as Tab)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="search">Package Search</option>
-            <option value="followup">Follow-up Queue</option>
-            <option value="escalations">Escalations</option>
-          </select>
+          <SelectField value={tab} onChange={(value) => setTab(value as Tab)} aria-label="Customer service section" options={[{ value: 'search', label: 'Package Search' }, { value: 'followup', label: 'Follow-up Queue' }, { value: 'escalations', label: 'Escalations' }]} />
         </div>
       </div>
 
@@ -251,23 +243,24 @@ export default function CustomerServicePage() {
 
                 {/* Customer delivery summary */}
                 {customerPackages && customerPackages.length > 0 && (() => {
-                  const total = customerPackages.length;
-                  const delivered = customerPackages.filter((p: any) => p.status === 'DELIVERED').length;
-                  const failed = customerPackages.filter((p: any) => ['RETURNED', 'CANCELLED'].includes(p.status)).length;
-                  const inTransit = customerPackages.filter((p: any) => ['ASSIGNED', 'PICKED_UP', 'IN_TRANSIT'].includes(p.status)).length;
-                  const attempted = customerPackages.filter((p: any) => p.status === 'DELIVERY_ATTEMPTED').length;
+                  const total = customerSummary?.submitted ?? 0;
+                  const delivered = customerSummary?.delivered ?? 0;
+                  const failed = customerSummary?.unsuccessful ?? 0;
+                  const inProgress = customerSummary?.inProgress ?? 0;
                   const successRate = total > 0 ? Math.round((delivered / total) * 100) : 0;
                   const recent = [...customerPackages].sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
                   return (
                     <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Customer Delivery Summary</p>
-                      <div className="grid grid-cols-5 gap-2 text-center">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Daily Customer Summary</p>
+                        <DateTimePicker mode="date" aria-label="Summary date" value={summaryDate} onChange={setSummaryDate} />
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-center">
                         {[
                           { label: 'Total', value: total, cls: 'text-foreground' },
                           { label: 'Delivered', value: delivered, cls: 'text-emerald-600' },
-                          { label: 'In Transit', value: inTransit, cls: 'text-blue-600' },
-                          { label: 'Attempted', value: attempted, cls: 'text-amber-600' },
-                          { label: 'Returned', value: failed, cls: 'text-red-600' },
+                          { label: 'Unsuccessful', value: failed, cls: 'text-red-600' },
+                          { label: 'In Progress', value: inProgress, cls: 'text-blue-600' },
                         ].map(({ label, value, cls }) => (
                           <div key={label} className="rounded-md border bg-card py-2 px-1">
                             <p className={`text-lg font-bold tabular-nums ${cls}`}>{value}</p>
@@ -291,7 +284,7 @@ export default function CustomerServicePage() {
                                 <span className={`rounded-full px-2 py-0.5 font-medium ${STATUS_COLORS[p.status] ?? 'bg-muted text-muted-foreground'}`}>
                                   {p.status?.replace(/_/g, ' ')}
                                 </span>
-                                <span className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</span>
+                                <span className="text-muted-foreground">{new Date(p.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                               </div>
                             ))}
                           </div>
@@ -461,7 +454,7 @@ export default function CustomerServicePage() {
                       <p className="text-xs text-muted-foreground">Requested: {esc.requestedAction}</p>
                       {esc.customer && <p className="text-xs text-muted-foreground">Customer: {esc.customer.name} Â· {esc.customer.phone}</p>}
                       <p className="text-xs text-muted-foreground">
-                        Raised by {esc.raisedBy?.firstName} {esc.raisedBy?.lastName} Â· {new Date(esc.createdAt).toLocaleDateString('en-GB')}
+                        Raised by {esc.raisedBy?.firstName} {esc.raisedBy?.lastName} Â· {new Date(esc.createdAt).toLocaleString('en-GB')}
                       </p>
                     </div>
                     {esc.status === 'OPEN' || esc.status === 'IN_PROGRESS' ? (
@@ -499,6 +492,14 @@ export default function CustomerServicePage() {
                     </div>
                   )}
                   {esc.resolution && <p className="text-xs text-muted-foreground">Resolution: {esc.resolution}</p>}
+                  {esc.events?.length > 0 && (
+                    <div className="border-t pt-2 space-y-1">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">History</p>
+                      {esc.events.map((event: any) => <p key={event.id} className="text-xs text-muted-foreground">
+                        {new Date(event.createdAt).toLocaleString('en-GB')} · {event.status.replace(/_/g, ' ')} · {event.changedBy?.firstName} {event.changedBy?.lastName}{event.resolution ? ` · ${event.resolution}` : ''}
+                      </p>)}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

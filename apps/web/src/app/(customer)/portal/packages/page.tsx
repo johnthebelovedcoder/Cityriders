@@ -5,6 +5,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ChevronDown, ChevronUp, Calendar, XClose, RefreshCcw01 } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
 
 const STATUS_BADGE: Record<string, string> = {
   REGISTERED: 'bg-gray-100 text-gray-700',
@@ -32,9 +34,6 @@ export default function PortalPackagesPage() {
   const [page, setPage] = useState(1);
   const [rescheduleTarget, setRescheduleTarget] = useState<{ id: string; trackingNumber: string } | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState('');
-
-  const minDate = new Date(); minDate.setDate(minDate.getDate() + 1);
-  const minDateStr = minDate.toISOString().split('T')[0];
 
   const rescheduleMutation = useMutation({
     mutationFn: ({ id, date }: { id: string; date: string }) =>
@@ -73,20 +72,10 @@ export default function PortalPackagesPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <select
-          value={status}
-          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>{s === 'All' ? 'All Statuses' : s.replace(/_/g, ' ')}</option>
-          ))}
-        </select>
-        <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        <SelectField className="min-w-40" value={status} onChange={(value) => { setStatus(value); setPage(1); }} aria-label="Filter by package status" options={STATUSES.map((item) => ({ value: item, label: item === 'All' ? 'All Statuses' : item.replace(/_/g, ' ') }))} />
+        <DateTimePicker mode="date" value={dateFrom} onChange={(value) => { setDateFrom(value); setPage(1); }} aria-label="Filter from date" />
         <span className="text-muted-foreground text-sm">&mdash;</span>
-        <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        <DateTimePicker mode="date" value={dateTo} onChange={(value) => { setDateTo(value); setPage(1); }} aria-label="Filter to date" />
         {(dateFrom || dateTo || status !== 'All') && (
           <button onClick={() => { setStatus('All'); setDateFrom(''); setDateTo(''); setPage(1); }}
             className="text-xs text-muted-foreground hover:text-foreground underline">
@@ -146,14 +135,8 @@ export default function PortalPackagesPage() {
             <div className="px-5 py-5 space-y-4">
               <p className="text-sm text-muted-foreground">Pick a preferred delivery date. Our team will contact you to confirm availability.</p>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wide mb-1.5 block">Preferred Date</label>
-                <input
-                  type="date"
-                  min={minDateStr}
-                  value={rescheduleDate}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
-                  className="w-full h-11 rounded-lg border border-input bg-background px-4 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
+                <label className="text-xs font-semibold uppercase tracking-wide mb-1.5 block">Preferred date and time</label>
+                <DateTimePicker minDate={new Date().toISOString()} value={rescheduleDate} onChange={setRescheduleDate} aria-label="Preferred delivery date and time" />
               </div>
             </div>
             <div className="flex gap-3 border-t px-5 pb-5 pt-4">
@@ -226,7 +209,7 @@ export default function PortalPackagesPage() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground mb-2">Submitted</p>
-                      <p className="text-sm">{new Date(pkg.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                      <p className="text-sm">{new Date(pkg.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                   </div>
                   {pkg.statusHistory?.length > 0 && (
@@ -239,7 +222,7 @@ export default function PortalPackagesPage() {
                               {h.status.replace(/_/g, ' ')}
                             </span>
                             {h.note && <span className="text-muted-foreground">{h.note}</span>}
-                            <span className="ml-auto text-muted-foreground shrink-0">{new Date(h.createdAt).toLocaleDateString()}</span>
+                            <span className="ml-auto text-muted-foreground shrink-0">{new Date(h.createdAt).toLocaleString()}</span>
                           </div>
                         ))}
                       </div>

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -131,7 +131,7 @@ export default function PortalDashboard() {
                       {pkg.status.replace(/_/g, ' ')}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(pkg.createdAt).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(pkg.createdAt).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

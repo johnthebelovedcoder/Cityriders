@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { CalendarDate, ArrowLeft, MessageAlertCircle } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/Drawer';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
 
 type Option = 'reschedule' | 'return' | 'escalate' | null;
 
@@ -126,14 +127,8 @@ export function DeliveryResolutionModal({ packageId, trackingNumber, onClose }: 
           {/* Conditional extra fields */}
           {chosen === 'reschedule' && (
             <div className="space-y-1 pt-1">
-              <label className="text-sm font-medium">Re-attempt date <span className="text-destructive">*</span></label>
-              <input
-                type="date"
-                value={reattemptAt}
-                min={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => setReattemptAt(e.target.value)}
-                className={inp}
-              />
+              <label className="text-sm font-medium">Re-attempt date and time <span className="text-destructive">*</span></label>
+              <DateTimePicker minDate={new Date().toISOString()} value={reattemptAt} onChange={setReattemptAt} aria-label="Re-attempt date and time" />
             </div>
           )}
 

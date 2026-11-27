@@ -4,6 +4,8 @@ import { use, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle, Clock, Package, MarkerPin01, Truck01, AlertCircle, Copy01, Check, RefreshCcw01 } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
 
 const STATUS_ORDER = ['REGISTERED', 'AWAITING_ASSIGNMENT', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED'];
 
@@ -250,15 +252,8 @@ export default function TrackNumberPage({ params }: { params: Promise<{ number: 
                       <p className="mb-4 text-sm text-muted-foreground">We couldn't reach you during the last attempt. Request a new delivery date below.</p>
                       <form onSubmit={handleReschedule} className="space-y-3">
                         <div>
-                          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide">Preferred Date *</label>
-                          <input
-                            type="date"
-                            required
-                            value={rescheduleDate}
-                            min={new Date().toISOString().slice(0, 10)}
-                            onChange={(e) => setRescheduleDate(e.target.value)}
-                            className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          />
+                          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide">Preferred date and time *</label>
+                          <DateTimePicker minDate={new Date().toISOString()} value={rescheduleDate} onChange={setRescheduleDate} aria-label="Preferred delivery date and time" />
                         </div>
                         <div>
                           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide">Notes <span className="font-normal normal-case opacity-60">(optional)</span></label>
@@ -302,19 +297,7 @@ export default function TrackNumberPage({ params }: { params: Promise<{ number: 
                     <form onSubmit={handleDispute} className="p-5 space-y-3">
                       <div>
                         <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide">Reason *</label>
-                        <select
-                          required
-                          value={disputeReason}
-                          onChange={(e) => setDisputeReason(e.target.value)}
-                          className="flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <option value="">Select a reason…</option>
-                          <option value="item_not_received">Item not received</option>
-                          <option value="damaged_item">Item arrived damaged</option>
-                          <option value="wrong_item">Wrong item delivered</option>
-                          <option value="partial_delivery">Partial delivery</option>
-                          <option value="other">Other</option>
-                        </select>
+                        <SelectField value={disputeReason} onChange={setDisputeReason} placeholder="Select a reason…" options={[{ value: 'item_not_received', label: 'Item not received' }, { value: 'damaged_item', label: 'Item arrived damaged' }, { value: 'wrong_item', label: 'Wrong item delivered' }, { value: 'partial_delivery', label: 'Partial delivery' }, { value: 'other', label: 'Other' }]} aria-label="Dispute reason" />
                       </div>
                       <div>
                         <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide">Description *</label>

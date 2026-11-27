@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { Plus, Edit02, Trash01, Car01, AlertTriangle, CheckCircle, XCircle } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/Drawer';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
 
 const VEHICLE_TYPES = ['Motorcycle', 'Tricycle', 'Car', 'Van', 'Truck', 'Bicycle', 'Other'];
 const STATUS_OPTIONS = ['ACTIVE', 'INACTIVE', 'MAINTENANCE'];
@@ -90,9 +92,7 @@ export default function VehiclesPage() {
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Type *</label>
-          <select value={form.type} onChange={(e) => set('type', e.target.value)} className={inp}>
-            {VEHICLE_TYPES.map((t) => <option key={t}>{t}</option>)}
-          </select>
+          <SelectField value={form.type} onChange={(value) => set('type', value)} aria-label="Vehicle type" options={VEHICLE_TYPES.map((type) => ({ value: type, label: type }))} />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Make *</label>
@@ -108,18 +108,11 @@ export default function VehiclesPage() {
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Status</label>
-          <select value={form.status} onChange={(e) => set('status', e.target.value)} className={inp}>
-            {STATUS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
-          </select>
+          <SelectField value={form.status} onChange={(value) => set('status', value)} aria-label="Vehicle status" options={STATUS_OPTIONS.map((status) => ({ value: status, label: status }))} />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Assign to Rider</label>
-          <select value={form.assignedRiderId} onChange={(e) => set('assignedRiderId', e.target.value)} className={inp}>
-            <option value="">— Unassigned —</option>
-            {(riders as any[]).map((r: any) => (
-              <option key={r.id} value={r.id}>{r.user.firstName} {r.user.lastName}</option>
-            ))}
-          </select>
+          <SelectField value={form.assignedRiderId} onChange={(value) => set('assignedRiderId', value)} aria-label="Assigned rider" placeholder="Unassigned" options={(riders as any[]).map((r: any) => ({ value: r.id, label: `${r.user.firstName} ${r.user.lastName}` }))} />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Odometer (km)</label>
@@ -127,11 +120,11 @@ export default function VehiclesPage() {
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Insurance Expiry</label>
-          <input type="date" value={form.insuranceExpiry} onChange={(e) => set('insuranceExpiry', e.target.value)} className={inp} />
+          <DateTimePicker mode="date" value={form.insuranceExpiry} onChange={(value) => set('insuranceExpiry', value)} aria-label="Insurance expiry date" />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Inspection Expiry</label>
-          <input type="date" value={form.inspectionExpiry} onChange={(e) => set('inspectionExpiry', e.target.value)} className={inp} />
+          <DateTimePicker mode="date" value={form.inspectionExpiry} onChange={(value) => set('inspectionExpiry', value)} aria-label="Inspection expiry date" />
         </div>
       </div>
       <div className="space-y-1.5">
@@ -217,7 +210,7 @@ export default function VehiclesPage() {
                       <td className="px-4 py-3">
                         {v.insuranceExpiry ? (
                           <span className={insExpired ? 'text-destructive font-semibold' : 'text-muted-foreground'}>
-                            {new Date(v.insuranceExpiry).toLocaleDateString()}
+                            {new Date(v.insuranceExpiry).toLocaleString()}
                             {insExpired && ' ⚠'}
                           </span>
                         ) : <span className="text-muted-foreground">—</span>}

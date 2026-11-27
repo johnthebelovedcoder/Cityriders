@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { CurrencyDollar, Clock, Wallet01, TrendUp01 } from '@untitled-ui/icons-react';
+import { CurrencyDollar, Clock, Wallet01, TrendUp01, Eye } from '@untitled-ui/icons-react';
 import { usePayments, useRunSettlement } from '@/hooks/usePayments';
 import { PaymentCreateDrawer } from '@/components/payments/PaymentCreateDrawer';
 import { PeriodFilter, usePeriodFilter } from '@/components/ui/PeriodFilter';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SelectField } from '@/components/ui/SelectField';
+import { api } from '@/lib/api';
 
 const TYPE_BADGE: Record<string, string> = {
   DeliveryFee: 'bg-blue-100 text-blue-700',
@@ -47,7 +49,7 @@ export default function PaymentsPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => { if (window.confirm('Run end-of-day settlement? This will create rider remittances.')) settlement.mutate(); }}
+            onClick={() => { if (window.confirm('Mark all pending payments as completed?')) settlement.mutate(); }}
             disabled={settlement.isPending}
             className="inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted disabled:opacity-60">
             {settlement.isPending ? 'Running...' : 'Run Settlement'}
@@ -107,11 +109,7 @@ export default function PaymentsPage() {
           className="h-10 flex-1 min-w-48 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         {([['Type', type, setType, ['DeliveryFee', 'Credit', 'RiderRemittance', 'Refund']], ['Status', status, setStatus, ['Paid', 'Pending', 'Failed', 'Refunded']], ['Method', method, setMethod, ['Cash', 'BankTransfer', 'Card', 'Credit']]] as const).map(([label, val, setter, opts]) => (
-          <select key={label} value={val} onChange={(e) => (setter as any)(e.target.value)}
-            className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <option value="">All {label}s</option>
-            {opts.map((o: string) => <option key={o}>{o}</option>)}
-          </select>
+          <SelectField key={label} className="min-w-36" value={val} onChange={(value) => (setter as any)(value)} aria-label={`Filter by payment ${label.toLowerCase()}`} options={[{ value: '', label: `All ${label}s` }, ...opts.map((option: string) => ({ value: option, label: option }))]} />
         ))}
       </div>
 
@@ -119,15 +117,15 @@ export default function PaymentsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/40 text-left">
-              {['Type', 'Amount', 'Method', 'Status', 'Reference', 'Entity', 'Date'].map((h) => (
+              {['Type', 'Amount', 'Method', 'Status', 'Reference', 'Entity', 'Date', 'Receipt'].map((h) => (
                 <th key={h} className="px-4 py-3 font-medium">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {isLoading && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>}
+            {isLoading && <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">Loading...</td></tr>}
             {!isLoading && payments.length === 0 && (
-              <tr><td colSpan={7} className="py-2">
+              <tr><td colSpan={8} className="py-2">
                 <EmptyState title="No payments found" description="Payments will appear here once packages are delivered and settled." />
               </td></tr>
             )}
@@ -148,7 +146,8 @@ export default function PaymentsPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3">{p.customer?.name ?? (p.rider?.user ? `${p.rider.user.firstName} ${p.rider.user.lastName}` : '-')}</td>
-                <td className="px-4 py-3 text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</td>
+                <td className="px-4 py-3 text-muted-foreground">{new Date(p.createdAt).toLocaleString()}</td>
+                <td className="px-4 py-3">{p.hasReceipt && <button type="button" title="View receipt" aria-label="View payment receipt" className="rounded p-1.5 text-primary hover:bg-muted" onClick={async () => { try { const { data } = await api.get(`/payments/${p.id}/receipt`, { responseType: 'blob' }); const url = URL.createObjectURL(data); window.open(url, '_blank', 'noopener,noreferrer'); window.setTimeout(() => URL.revokeObjectURL(url), 60_000); } catch { window.alert('Could not open payment receipt'); } }}><Eye className="h-4 w-4" /></button>}</td>
               </tr>
             ))}
           </tbody>

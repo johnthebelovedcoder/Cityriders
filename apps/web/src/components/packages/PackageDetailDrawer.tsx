@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { MarkerPin01, ArrowRight, Package, Scale01, CurrencyDollar, Clock, CheckCircle, AlertCircle, XClose, RefreshCcw01 } from '@untitled-ui/icons-react';
+import { MarkerPin01, ArrowRight, Package, Scale01, CurrencyDollar, Clock, CheckCircle, AlertCircle, XClose, RefreshCcw01, Printer } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/Drawer';
 import { StatusUpdateModal } from '@/components/packages/StatusUpdateModal';
 import { DeliveryResolutionModal } from '@/components/packages/DeliveryResolutionModal';
+import { useAuth } from '@/context/auth-context';
+import { SelectField } from '@/components/ui/SelectField';
 
 const STATUS_BADGE: Record<string, string> = {
   REGISTERED: 'bg-gray-100 text-gray-700',
@@ -62,12 +64,16 @@ function StatusTimeline({ history }: { history: any[] }) {
 type Props = { packageId: string; onClose: () => void };
 
 export function PackageDetailDrawer({ packageId, onClose }: Props) {
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showResolution, setShowResolution] = useState(false);
   const [resolutionDismissed, setResolutionDismissed] = useState(false);
   const [selectedRiderId, setSelectedRiderId] = useState('');
+  const [showCorrection, setShowCorrection] = useState(false);
+  const [correctionStatus, setCorrectionStatus] = useState('OUT_FOR_DELIVERY');
+  const [correctionReason, setCorrectionReason] = useState('');
 
   const { data: pkg, isLoading } = useQuery({
     queryKey: ['package', packageId],
@@ -90,6 +96,17 @@ export function PackageDetailDrawer({ packageId, onClose }: Props) {
       setShowAssignModal(false);
     },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Assignment failed'),
+  });
+
+  const correctOutcome = useMutation({
+    mutationFn: () => api.post(`/packages/${packageId}/delivery-corrections`, { status: correctionStatus, reason: correctionReason }),
+    onSuccess: () => {
+      toast.success('Delivery outcome correction recorded');
+      qc.invalidateQueries({ queryKey: ['package', packageId] });
+      qc.invalidateQueries({ queryKey: ['packages'] });
+      setShowCorrection(false);
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Could not correct delivery outcome'),
   });
 
   useEffect(() => {
@@ -124,6 +141,32 @@ export function PackageDetailDrawer({ packageId, onClose }: Props) {
 
         {pkg && (
           <div className="space-y-5">
+            {/* Print waybill link */}
+            <a
+              href={`/packages/${packageId}/print`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-2.5 text-sm font-medium text-muted-foreground hover:border-foreground/30 hover:text-foreground transition-colors"
+            >
+              <Printer className="h-4 w-4 shrink-0" />
+              Print Waybill / Save PDF
+            </a>
+
+            {status === 'DELIVERED' && ['ADMINISTRATOR', 'MANAGER'].includes(user?.role ?? '') && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                {!showCorrection ? (
+                  <button type="button" onClick={() => setShowCorrection(true)} className="text-sm font-semibold text-amber-900">Correct an erroneous delivery outcome</button>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-amber-900">Authorized correction</p>
+                    <SelectField value={correctionStatus} onChange={setCorrectionStatus} aria-label="Corrected delivery status" options={['IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERY_ATTEMPTED', 'FAILED', 'RESCHEDULED', 'RETURNED'].map((value) => ({ value, label: value.replaceAll('_', ' ') }))} />
+                    <textarea required value={correctionReason} onChange={(event) => setCorrectionReason(event.target.value)} rows={2} placeholder="Explain why the completed outcome is being corrected" className="w-full rounded-md border bg-background px-3 py-2 text-sm" />
+                    <div className="flex justify-end gap-2"><button type="button" onClick={() => setShowCorrection(false)} className="rounded-md border px-3 py-1.5 text-xs">Cancel</button><button type="button" disabled={!correctionReason.trim() || correctOutcome.isPending} onClick={() => correctOutcome.mutate()} className="rounded-md bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50">Save correction</button></div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Delivery Attempted banner */}
             {status === 'DELIVERY_ATTEMPTED' && resolutionDismissed && (
               <div className="flex items-center justify-between gap-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3">
@@ -221,7 +264,7 @@ export function PackageDetailDrawer({ packageId, onClose }: Props) {
                   <p className="text-xs text-muted-foreground">{activeAssignment.rider.user.phone}</p>
                   <p className="text-xs text-muted-foreground">
                     <Clock className="inline h-2.5 w-2.5 mr-1" />
-                    Assigned {new Date(activeAssignment.assignedAt).toLocaleDateString()}
+                    Assigned {new Date(activeAssignment.assignedAt).toLocaleString()}
                   </p>
                 </div>
               ) : (

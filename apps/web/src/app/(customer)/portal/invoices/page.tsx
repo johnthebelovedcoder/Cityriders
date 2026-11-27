@@ -57,14 +57,14 @@ export default function InvoicesPage() {
                   <tr key={inv.id} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-primary">{inv.invoiceNumber}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {new Date(inv.billingPeriodStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      {new Date(inv.billingPeriodStart).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       {' – '}
-                      {new Date(inv.billingPeriodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(inv.billingPeriodEnd).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{inv._count?.lineItems ?? 0} deliveries</td>
                     <td className="px-4 py-3 font-semibold">{fmt(inv.totalAmount)}</td>
                     <td className={`px-4 py-3 text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                      {new Date(inv.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(inv.dueDate).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       {isOverdue && ' · Overdue'}
                     </td>
                     <td className="px-4 py-3">

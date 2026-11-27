@@ -96,7 +96,7 @@ export function ProofOfDelivery({ packageId, onSuccess, onCancel }: Props) {
         const blob = await (await fetch(signatureData)).blob();
         form.append('signature', blob, 'signature.png');
       }
-      return api.post(`/packages/${packageId}/proof-of-delivery`, form, {
+      return api.post(`/deliveries/${packageId}/proof`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
     },
@@ -104,11 +104,7 @@ export function ProofOfDelivery({ packageId, onSuccess, onCancel }: Props) {
       toast.success('Proof of delivery submitted');
       onSuccess();
     },
-    onError: () => {
-      // POD endpoint may not exist yet — treat as optional and proceed
-      toast.success('Delivery confirmed');
-      onSuccess();
-    },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Proof could not be saved. Please try again.'),
   });
 
   const canSubmit = photo || hasSig;

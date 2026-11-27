@@ -249,8 +249,8 @@ export default function DashboardPage() {
                 <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
                 <Tooltip content={<ChartTooltip />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }} />
                 <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
-                <Bar dataKey="delivered" name="Delivered" fill="#10b981" radius={[4, 4, 0, 0]} stackId="a" />
-                <Bar dataKey="failed" name="Failed" fill="#f43f5e" radius={[4, 4, 0, 0]} stackId="a" />
+                <Bar dataKey="delivered" name="Delivered" fill="#FFB217" radius={[4, 4, 0, 0]} stackId="a" />
+                <Bar dataKey="failed" name="Failed" fill="#AE1805" radius={[4, 4, 0, 0]} stackId="a" />
               </BarChart>
             </ResponsiveContainer>
           )}

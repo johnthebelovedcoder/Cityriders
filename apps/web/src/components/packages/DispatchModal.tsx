@@ -17,18 +17,24 @@ const SCORE_BADGE: Record<string, string> = {
 export function DispatchModal({ packageIds, onClose }: Props) {
   const qc = useQueryClient();
   const [riderId, setRiderId] = useState('');
+  const [expectedCount, setExpectedCount] = useState(String(packageIds.length));
 
   const { data: riders, isLoading } = useQuery({
     queryKey: ['riders/smart-dispatch'],
     queryFn: () => api.get('/riders/smart-dispatch').then((r) => r.data as any[]),
   });
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get('/settings').then((response) => response.data),
+  });
+  const capacity = Number(settings?.maxPackagesPerRider ?? 20);
 
   // Auto-select the top recommendation when data arrives
   const topRider = riders?.[0];
   const selectedId = riderId || topRider?.id || '';
 
   const create = useMutation({
-    mutationFn: () => api.post('/dispatch/manifests', { packageIds, riderId: selectedId }),
+    mutationFn: () => api.post('/dispatch/manifests', { packageIds, riderId: selectedId, expectedPackageCount: Number(expectedCount) }),
     onSuccess: () => {
       toast.success(`${packageIds.length} package(s) dispatched`);
       qc.invalidateQueries({ queryKey: ['packages'] });
@@ -56,11 +62,18 @@ export function DispatchModal({ packageIds, onClose }: Props) {
     >
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">Riders ranked by zone match, current load, and on-time history.</p>
+        <label className="block space-y-1">
+          <span className="text-xs font-medium">Expected packages from customer</span>
+          <input type="number" min={0} value={expectedCount} onChange={(e) => setExpectedCount(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" />
+          <span className="text-xs text-muted-foreground">Selected and received: {packageIds.length}. A mismatch must be reconciled before dispatch.</span>
+        </label>
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading riders…</p>}
 
         {riders?.map((rider: any, idx: number) => {
           const isSelected = (riderId || topRider?.id) === rider.id;
+          const projectedLoad = Number(rider.currentLoad ?? 0) + packageIds.length;
+          const exceedsCapacity = projectedLoad > capacity;
           return (
             <label
               key={rider.id}
@@ -92,7 +105,8 @@ export function DispatchModal({ packageIds, onClose }: Props) {
                 </div>
                 <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
                   <span>{rider.vehicleType ?? 'Rider'} · {rider.zone?.name}</span>
-                  <span>Load: {rider.currentLoad} active</span>
+                  <span>Load: {rider.currentLoad} active · {projectedLoad} after this dispatch / {capacity}</span>
+                  {exceedsCapacity && <span className="font-semibold text-amber-700">Above configured capacity</span>}
                   <span>On-time: {rider.onTimeRate}%</span>
                 </div>
               </div>

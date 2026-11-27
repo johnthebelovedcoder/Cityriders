@@ -17,6 +17,12 @@ const REPORT_TYPES = [
   { id: 'sla-breach',        label: 'SLA Breach' },
   { id: 'profit-loss',       label: 'Profit & Loss' },
   { id: 'customer-activity', label: 'Customer Activity' },
+  { id: 'year-on-year',      label: 'Year on Year' },
+  { id: 'route-performance', label: 'Route Performance' },
+  { id: 'delivery-exceptions', label: 'Delivery Exceptions' },
+  { id: 'invoice-aging', label: 'Receivables Aging' },
+  { id: 'customer-service-activity', label: 'Customer Service Activity' },
+  { id: 'maintenance-history', label: 'Maintenance History' },
 ];
 
 const PIE_COLORS = ['#22c55e', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6'];
@@ -68,8 +74,8 @@ function DeliverySummaryReport({ data }: { data: any }) {
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
-              <Bar dataKey="delivered" name="Delivered" fill="#22c55e" stackId="a" />
-              <Bar dataKey="failed" name="Failed" fill="#ef4444" stackId="a" />
+              <Bar dataKey="delivered" name="Delivered" fill="#FFB217" stackId="a" />
+              <Bar dataKey="failed" name="Failed" fill="#AE1805" stackId="a" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -138,7 +144,7 @@ function RevenueReport({ data }: { data: any }) {
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: any) => fmt(v)} />
-              <Line type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="amount" stroke="#FFB217" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -150,7 +156,7 @@ function RevenueReport({ data }: { data: any }) {
               <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
               <YAxis type="category" dataKey="method" tick={{ fontSize: 11 }} width={100} />
               <Tooltip formatter={(v: any) => fmt(v)} />
-              <Bar dataKey="amount" fill="#3b82f6" />
+              <Bar dataKey="amount" fill="#FFB217" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -171,7 +177,7 @@ function RiderPerformanceReport({ data }: { data: any[] }) {
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="riderName" tick={{ fontSize: 11 }} width={120} />
               <Tooltip />
-              <Bar dataKey="deliveries" name="Deliveries" fill="#22c55e" />
+              <Bar dataKey="deliveries" name="Deliveries" fill="#FFB217" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -183,7 +189,7 @@ function RiderPerformanceReport({ data }: { data: any[] }) {
               <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
               <YAxis type="category" dataKey="riderName" tick={{ fontSize: 11 }} width={120} />
               <Tooltip formatter={(v: any) => `${v}%`} />
-              <Bar dataKey="onTimeRate" name="On-Time %" fill="#3b82f6" />
+              <Bar dataKey="onTimeRate" name="On-Time %" fill="#FFB217" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -267,8 +273,8 @@ function ProfitLossReport({ data }: { data: any }) {
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: any) => fmt(v)} />
-              <Bar dataKey="revenue" name="Revenue" fill="#22c55e" />
-              <Bar dataKey="expenses" name="Expenses" fill="#ef4444" />
+              <Bar dataKey="revenue" name="Revenue" fill="#FFB217" />
+              <Bar dataKey="expenses" name="Expenses" fill="#AE1805" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -277,7 +283,7 @@ function ProfitLossReport({ data }: { data: any }) {
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
               <Pie data={data.expenseBreakdown} dataKey="amount" nameKey="category" cx="50%" cy="50%" outerRadius={80} label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}>
-                {data.expenseBreakdown.map((_: any, i: number) => <Cell key={i} fill={['#ef4444','#f59e0b','#3b82f6','#8b5cf6','#22c55e'][i % 5]} />)}
+                {data.expenseBreakdown.map((_: any, i: number) => <Cell key={i} fill={['#AE1805','#FFB217','#D8CFC4','#6B625A','#2A2522'][i % 5]} />)}
               </Pie>
               <Tooltip formatter={(v: any) => fmt(v)} />
             </PieChart>
@@ -300,7 +306,7 @@ function CustomerActivityReport({ data }: { data: any[] }) {
             <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} width={110} />
             <Tooltip formatter={(v: any) => fmt2(v)} />
-            <Bar dataKey="spend" fill="#3b82f6" />
+            <Bar dataKey="spend" fill="#FFB217" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -313,7 +319,7 @@ function CustomerActivityReport({ data }: { data: any[] }) {
                 <td className="px-4 py-3 font-medium">{c.name}</td>
                 <td className="px-4 py-3">{c.shipments}</td>
                 <td className="px-4 py-3 font-mono">{fmt2(c.spend)}</td>
-                <td className="px-4 py-3 text-muted-foreground">{new Date(c.lastShipment).toLocaleDateString()}</td>
+                <td className="px-4 py-3 text-muted-foreground">{new Date(c.lastShipment).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
@@ -344,8 +350,8 @@ function SlaBreachReport({ data }: { data: any }) {
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-              <Bar dataKey="delivered" name="On Time" fill="#22c55e" stackId="a" />
-              <Bar dataKey="breached" name="Breached" fill="#ef4444" stackId="a" />
+              <Bar dataKey="delivered" name="On Time" fill="#FFB217" stackId="a" />
+              <Bar dataKey="breached" name="Breached" fill="#AE1805" stackId="a" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -357,7 +363,7 @@ function SlaBreachReport({ data }: { data: any }) {
               <XAxis type="number" domain={[0, 50]} tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
               <YAxis type="category" dataKey="zone" tick={{ fontSize: 11 }} width={120} />
               <Tooltip formatter={(v: any) => `${v}%`} />
-              <Bar dataKey="breachRate" name="Breach Rate" fill="#f59e0b" />
+              <Bar dataKey="breachRate" name="Breach Rate" fill="#AE1805" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -402,7 +408,7 @@ function RevenueByZoneReport({ data }: { data: any }) {
               <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} />
               <YAxis type="category" dataKey="zone" tick={{ fontSize: 11 }} width={120} />
               <Tooltip formatter={(v: any) => fmt(v)} />
-              <Bar dataKey="revenue" name="Revenue" fill="#10b981" />
+              <Bar dataKey="revenue" name="Revenue" fill="#FFB217" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -414,7 +420,7 @@ function RevenueByZoneReport({ data }: { data: any }) {
               <XAxis type="number" tick={{ fontSize: 11 }} />
               <YAxis type="category" dataKey="zone" tick={{ fontSize: 11 }} width={120} />
               <Tooltip />
-              <Bar dataKey="deliveries" name="Deliveries" fill="#3b82f6" />
+              <Bar dataKey="deliveries" name="Deliveries" fill="#FFB217" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -446,7 +452,122 @@ function RevenueByZoneReport({ data }: { data: any }) {
   );
 }
 
-function exportToCsv(reportId: string, data: any) {
+function YearOnYearReport({ data }: { data: any }) {
+  const thisYear = new Date().getFullYear();
+  const lastYear = thisYear - 1;
+  const pct = (curr: number, prev: number) => prev === 0 ? null : Math.round(((curr - prev) / prev) * 100);
+  const delta = (curr: number, prev: number) => {
+    const p = pct(curr, prev);
+    if (p === null) return null;
+    return <span className={`text-xs font-semibold ml-1 ${p >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{p >= 0 ? '+' : ''}{p}% YoY</span>;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* KPI comparison cards */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          { label: 'Packages', curr: data.thisYear.packages, prev: data.lastYear.packages, icon: Package, cls: 'text-blue-600 bg-blue-50' },
+          { label: 'Revenue', curr: data.thisYear.revenue, prev: data.lastYear.revenue, icon: CurrencyDollar, cls: 'text-emerald-600 bg-emerald-50', money: true },
+          { label: 'Deliveries', curr: data.thisYear.deliveries, prev: data.lastYear.deliveries, icon: CheckCircle, cls: 'text-green-600 bg-green-50' },
+          { label: 'Success Rate', curr: data.thisYear.successRate, prev: data.lastYear.successRate, icon: TrendUp01, cls: 'text-violet-600 bg-violet-50', pct: true },
+        ].map(({ label, curr, prev, icon: Icon, cls, money, pct: isPct }) => (
+          <div key={label} className="rounded-xl border bg-card p-4">
+            <div className="flex items-start justify-between mb-3">
+              <p className="text-xs font-medium text-muted-foreground">{label}</p>
+              <div className={`rounded-lg p-2 ${cls}`}><Icon className="h-3.5 w-3.5" /></div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold">{money ? fmt(curr) : isPct ? `${curr}%` : curr.toLocaleString()}</span>
+                {delta(curr, prev)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {lastYear}: {money ? fmt(prev) : isPct ? `${prev}%` : prev.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Monthly comparison chart */}
+      <div className="rounded-xl border bg-card p-5">
+        <p className="mb-1 text-sm font-semibold">Monthly Revenue: {thisYear} vs {lastYear}</p>
+        <p className="mb-4 text-xs text-muted-foreground">Year-on-year comparison by month</p>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={data.monthly} barSize={12} barGap={4}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} width={48} />
+            <Tooltip formatter={(v: any) => fmt(v)} />
+            <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+            <Bar dataKey="thisYear" name={String(thisYear)} fill="#FFB217" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="lastYear" name={String(lastYear)} fill="#D8CFC4" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Volume comparison */}
+      <div className="rounded-xl border bg-card p-5">
+        <p className="mb-1 text-sm font-semibold">Package Volume: {thisYear} vs {lastYear}</p>
+        <p className="mb-4 text-xs text-muted-foreground">Packages shipped per month</p>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data.monthly} barSize={12} barGap={4}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+            <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} width={36} />
+            <Tooltip />
+            <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
+            <Bar dataKey="thisYearPkgs" name={String(thisYear)} fill="#FFB217" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="lastYearPkgs" name={String(lastYear)} fill="#D8CFC4" radius={[3, 3, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Summary table */}
+      <div className="rounded-xl border bg-card overflow-x-auto">
+        <div className="border-b px-5 py-3">
+          <p className="text-sm font-semibold">Quarter-by-Quarter Summary</p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/40 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <th className="px-4 py-3">Quarter</th>
+              <th className="px-4 py-3">{thisYear} Revenue</th>
+              <th className="px-4 py-3">{lastYear} Revenue</th>
+              <th className="px-4 py-3">Change</th>
+              <th className="px-4 py-3">{thisYear} Pkgs</th>
+              <th className="px-4 py-3">{lastYear} Pkgs</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.quarterly.map((q: any) => {
+              const revChange = pct(q.thisYearRev, q.lastYearRev);
+              return (
+                <tr key={q.quarter} className="border-b last:border-0 hover:bg-muted/30">
+                  <td className="px-4 py-3 font-medium">{q.quarter}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold">{fmt(q.thisYearRev)}</td>
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">{fmt(q.lastYearRev)}</td>
+                  <td className="px-4 py-3">
+                    {revChange !== null && (
+                      <span className={`text-xs font-semibold ${revChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        {revChange >= 0 ? '+' : ''}{revChange}%
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">{q.thisYearPkgs}</td>
+                  <td className="px-4 py-3 tabular-nums text-muted-foreground">{q.lastYearPkgs}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function exportToCsv(reportId: string, data: any, reportLabel: string, from?: string, to?: string) {
   if (!data) return;
   let rows: string[][] = [];
 
@@ -461,13 +582,39 @@ function exportToCsv(reportId: string, data: any) {
   } else if (reportId === 'customer-activity') {
     rows = [['Customer', 'Shipments', 'Total Spend', 'Last Shipment'], ...(data as any[]).map((c) => [c.name, c.shipments, c.spend, c.lastShipment])];
   } else if (reportId === 'sla-breach' && data.byZone) {
-    rows = [['Zone', 'Packages', 'Breached', 'Breach Rate'], ...data.byZone.map((z: any) => [z.zone, z.packages, z.breached, `${z.breachRate}%`])];
+    rows = [['Zone', 'Packages', 'Breached', 'Breach Rate'], ...data.byZone.map((z: any) => [z.zone, z.total, z.breached, `${z.breachRate}%`])];
   } else if (reportId === 'revenue-by-zone' && data.byZone) {
     rows = [['Zone', 'Deliveries', 'Revenue', 'Avg Fee'], ...data.byZone.map((z: any) => [z.zone, z.deliveries, z.revenue, z.avgFee])];
+  } else if (reportId === 'year-on-year') {
+    rows = [['Measure', 'This year', 'Last year'],
+      ['Packages', data.thisYear.packages, data.lastYear.packages],
+      ['Revenue', data.thisYear.revenue, data.lastYear.revenue],
+      ['Deliveries', data.thisYear.deliveries, data.lastYear.deliveries],
+      ['Success rate', `${data.thisYear.successRate}%`, `${data.lastYear.successRate}%`]];
+  } else if (reportId === 'route-performance') {
+    rows = [['Route ID', 'Route', 'Packages', 'Delivered', 'Unsuccessful', 'Pending', 'Completion rate'], ...(data as any[]).map((r) => [r.routeId, r.route, r.packages, r.delivered, r.unsuccessful, r.pending, `${r.completionRate}%`])];
+  } else if (reportId === 'delivery-exceptions' || reportId === 'invoice-aging' || reportId === 'maintenance-history') {
+    const records = (data as any[]).map((r) => ({
+      ...(r.trackingNumber ? { trackingNumber: r.trackingNumber, customer: r.sender?.name, recipient: r.recipient?.name, status: r.status, reason: r.statusHistory?.[0]?.failureReasonCode?.label ?? r.statusHistory?.[0]?.failedReason, updatedAt: r.statusHistory?.[0]?.createdAt, reattemptAt: r.reattemptAt } : {}),
+      ...(r.invoiceNumber ? { invoiceNumber: r.invoiceNumber, customer: r.customer, dueDate: r.dueDate, daysOverdue: r.daysOverdue, bucket: r.bucket, balance: r.balance, status: r.status } : {}),
+      ...(r.vehicle ? { vehicle: r.vehicle.plateNumber, serviceDate: r.serviceDate, type: r.type, description: r.description, cost: r.cost, nextServiceDate: r.nextServiceDate } : {}),
+    }));
+    const columns = [...new Set(records.flatMap((r) => Object.keys(r)))];
+    rows = [columns, ...records.map((record) => columns.map((column) => (record as any)[column] ?? ''))];
+  } else if (reportId === 'customer-service-activity') {
+    const interactions = Array.isArray(data?.interactions) ? data.interactions : [];
+    const escalations = Array.isArray(data?.escalations) ? data.escalations : [];
+    const records = [...interactions.map((r: any) => ({ id: r.id, type: 'Interaction', date: r.createdAt, customer: r.customer?.name, package: r.package?.trackingNumber, channel: r.channel, summary: r.summary, action: r.actionTaken, outcome: r.outcome, staff: `${r.staff?.firstName ?? ''} ${r.staff?.lastName ?? ''}`.trim() })), ...escalations.map((r: any) => ({ id: r.id, type: 'Escalation', date: r.createdAt, customer: r.customer?.name, package: r.package?.trackingNumber, priority: r.priority, status: r.status, reason: r.reason, requestedAction: r.requestedAction }))];
+    const columns = [...new Set(records.flatMap((r) => Object.keys(r)))];
+    rows = [columns, ...records.map((record) => columns.map((column) => (record as any)[column] ?? ''))];
   }
 
   if (!rows.length) return;
-  const csv = rows.map((r) => r.join(',')).join('\n');
+  const csvRows = [['Report', reportLabel], ['From', from ?? 'All dates'], ['To', to ?? 'All dates'], ['Generated at', new Date().toISOString()], [], ...rows];
+  const csv = csvRows.map((r) => r.map((value) => {
+    const text = String(value ?? '');
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }).join(',')).join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -475,6 +622,21 @@ function exportToCsv(reportId: string, data: any) {
   a.download = `${reportId}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function GenericReportTable({ data }: { data: any }) {
+  const records = Array.isArray(data) ? data : [];
+  const flattened = records.map((row) => {
+    const result: Record<string, any> = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (['statusHistory'].includes(key) && Array.isArray(value)) result.failureReason = (value[0] as any)?.failureReasonCode?.label ?? (value[0] as any)?.failedReason;
+      else if (value && typeof value === 'object' && !(value instanceof Date) && !Array.isArray(value)) result[key] = (value as any).name ?? (value as any).plateNumber ?? (value as any).firstName ?? JSON.stringify(value);
+      else if (!Array.isArray(value)) result[key] = value instanceof Date ? value.toLocaleString() : value;
+    }
+    return result;
+  });
+  const columns = [...new Set(flattened.flatMap((row) => Object.keys(row)))].filter((key) => !['id', 'senderId', 'customerId', 'staffId', 'createdById'].includes(key));
+  return <div className="rounded-lg border bg-card overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b bg-muted/40 text-left">{columns.map((key) => <th key={key} className="px-3 py-2 font-medium">{key.replace(/([A-Z])/g, ' $1')}</th>)}</tr></thead><tbody>{flattened.map((row, index) => <tr key={index} className="border-b last:border-0">{columns.map((key) => <td key={key} className="max-w-xs px-3 py-2 align-top">{String(row[key] ?? '—')}</td>)}</tr>)}{flattened.length === 0 && <tr><td colSpan={Math.max(columns.length, 1)} className="p-8 text-center text-muted-foreground">No records for this selection.</td></tr>}</tbody></table></div>;
 }
 
 export default function ReportsPage() {
@@ -501,7 +663,7 @@ export default function ReportsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <PeriodFilter value={range} onChange={setRange} defaultPreset="this-month" />
             <button
-              onClick={() => exportToCsv(activeReport, data)}
+              onClick={() => exportToCsv(activeReport, data, REPORT_TYPES.find((r) => r.id === activeReport)?.label ?? activeReport, range.from, range.to)}
               disabled={!data}
               className="inline-flex h-10 items-center rounded-lg border px-3 text-sm font-medium hover:bg-muted disabled:opacity-50"
             >
@@ -518,6 +680,15 @@ export default function ReportsPage() {
         {!isLoading && data && activeReport === 'sla-breach'        && <SlaBreachReport data={data} />}
         {!isLoading && data && activeReport === 'profit-loss'       && <ProfitLossReport data={data} />}
         {!isLoading && data && activeReport === 'customer-activity' && <CustomerActivityReport data={data} />}
+        {!isLoading && data && activeReport === 'year-on-year'       && <YearOnYearReport data={data} />}
+        {!isLoading && data && activeReport === 'route-performance' && <GenericReportTable data={data} />}
+        {!isLoading && data && activeReport === 'delivery-exceptions' && <GenericReportTable data={data} />}
+        {!isLoading && data && activeReport === 'invoice-aging' && <GenericReportTable data={data} />}
+        {!isLoading && data && activeReport === 'maintenance-history' && <GenericReportTable data={data} />}
+        {!isLoading && data && activeReport === 'customer-service-activity' && <GenericReportTable data={[
+          ...(Array.isArray(data.interactions) ? data.interactions : []).map((r: any) => ({ type: 'Interaction', ...r })),
+          ...(Array.isArray(data.escalations) ? data.escalations : []).map((r: any) => ({ type: 'Escalation', ...r })),
+        ]} />}
       </div>
     </div>
   );

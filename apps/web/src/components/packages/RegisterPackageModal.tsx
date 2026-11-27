@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Truck01 } from '@untitled-ui/icons-react';
+import { Truck01, User01 } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
 import { CustomerPhoneInput, type ExistingCustomer } from './CustomerPhoneInput';
 import { Drawer } from '@/components/ui/Drawer';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
 
 const inp = 'flex h-11 w-full rounded-lg border border-input bg-background px-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const numInp = `${inp} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
@@ -15,12 +17,16 @@ const textarea = 'flex w-full rounded-lg border border-input bg-background px-4 
 
 type Props = { onClose: () => void };
 
+const BRANCH_ADDRESS = '12 Marina Street';
+const BRANCH_CITY = 'Lagos Island';
+
 export function RegisterPackageModal({ onClose }: Props) {
   const router = useRouter();
   const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<ExistingCustomer | null>(null);
   const [riderId, setRiderId] = useState('');
+  const [walkIn, setWalkIn] = useState(false);
 
   const { data: activeRiders } = useQuery({
     queryKey: ['riders-active'],
@@ -44,6 +50,26 @@ export function RegisterPackageModal({ onClose }: Props) {
   const [deliveryFee, setDeliveryFee] = useState('');
   const [promisedDelivery, setPromisedDelivery] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [orderReference, setOrderReference] = useState('');
+  const [expectedPackageCount, setExpectedPackageCount] = useState('');
+
+  function enableWalkIn() {
+    setWalkIn(true);
+    setSelectedCustomer(null);
+    setSenderLookup('');
+    setSenderName('Walk-in Customer');
+    setSenderPhone('');
+    setSenderAddress(BRANCH_ADDRESS);
+    setSenderCity(BRANCH_CITY);
+  }
+
+  function disableWalkIn() {
+    setWalkIn(false);
+    setSenderName('');
+    setSenderPhone('');
+    setSenderAddress('');
+    setSenderCity('');
+  }
 
   function handleCustomerSelect(c: ExistingCustomer) {
     setSelectedCustomer(c);
@@ -96,6 +122,8 @@ export function RegisterPackageModal({ onClose }: Props) {
         deliveryFee: deliveryFee ? parseFloat(deliveryFee) : undefined,
         promisedDelivery: promisedDelivery || undefined,
         specialInstructions: specialInstructions || undefined,
+        orderReference: orderReference.trim() || undefined,
+        expectedPackageCount: expectedPackageCount ? Number(expectedPackageCount) : undefined,
         senderId, recipientId: recipient.id,
         originAddress: { street: senderAddress, city: senderCity, country: 'Nigeria' },
         destinationAddress: { street: recipientAddress, city: recipientCity, country: 'Nigeria' },
@@ -131,7 +159,7 @@ export function RegisterPackageModal({ onClose }: Props) {
 
   return (
     <Drawer
-      title="Register New Package"
+      title={walkIn ? 'Register Package — Walk-in' : 'Register New Package'}
       width="2xl"
       onClose={onClose}
       footer={
@@ -149,22 +177,46 @@ export function RegisterPackageModal({ onClose }: Props) {
       }
     >
       <form id="register-package-form" onSubmit={handleSubmit} className="space-y-5">
+        {/* Walk-in toggle */}
+        {!walkIn ? (
+          <button
+            type="button"
+            onClick={enableWalkIn}
+            className="flex w-full items-center gap-2 rounded-lg border border-dashed border-amber-400 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          >
+            <User01 className="h-4 w-4 shrink-0" />
+            Switch to Walk-in Mode — sender drops package at branch counter
+          </button>
+        ) : (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5">
+            <div className="flex items-center gap-2 text-sm font-medium text-amber-800">
+              <User01 className="h-4 w-4 shrink-0" />
+              Walk-in Mode — pickup address set to branch ({BRANCH_ADDRESS}, {BRANCH_CITY})
+            </div>
+            <button type="button" onClick={disableWalkIn} className="text-xs text-amber-700 underline hover:no-underline shrink-0">
+              Cancel walk-in
+            </button>
+          </div>
+        )}
+
         {/* Sender */}
         <div>
           <div className="mb-3">
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Sender / Customer</h3>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5 sm:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wide">Find Existing Customer <span className="font-normal normal-case opacity-60">(search by name or phone)</span></label>
-              <CustomerPhoneInput
-                value={senderLookup}
-                onChange={setSenderLookup}
-                onSelect={(c) => { handleCustomerSelect(c); setSenderLookup(''); }}
-                className={inp}
-                placeholder="Search by name or phone..."
-              />
-            </div>
+            {!walkIn && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-wide">Find Existing Customer <span className="font-normal normal-case opacity-60">(search by name or phone)</span></label>
+                <CustomerPhoneInput
+                  value={senderLookup}
+                  onChange={setSenderLookup}
+                  onSelect={(c) => { handleCustomerSelect(c); setSenderLookup(''); }}
+                  className={inp}
+                  placeholder="Search by name or phone..."
+                />
+              </div>
+            )}
             {selectedCustomer && (
               <div className="sm:col-span-2 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm">
                 <span className="font-medium text-green-700">{selectedCustomer.name}</span>
@@ -209,10 +261,12 @@ export function RegisterPackageModal({ onClose }: Props) {
         <div>
           <h3 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Package Details</h3>
           <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Customer Order Reference</label><input value={orderReference} onChange={(e) => setOrderReference(e.target.value)} className={inp} placeholder="Customer PO / order ID" /></div>
+            <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Expected Packages <span className="font-normal normal-case opacity-60">(for this order)</span></label><input type="number" min="0" step="1" value={expectedPackageCount} onChange={(e) => setExpectedPackageCount(e.target.value)} className={numInp} placeholder="Set on first package" /></div>
             <div className="space-y-1.5 sm:col-span-2"><label className="text-xs font-semibold uppercase tracking-wide">Description</label><input value={description} onChange={(e) => setDescription(e.target.value)} className={inp} placeholder="What is in the parcel?" /></div>
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Weight (kg)</label><input type="number" inputMode="decimal" step="0.1" min="0" value={weight} onChange={(e) => setWeight(e.target.value)} className={numInp} placeholder="0.0" /></div>
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Delivery Fee (NGN)</label><input type="number" inputMode="decimal" step="0.01" min="0" value={deliveryFee} onChange={(e) => setDeliveryFee(e.target.value)} className={numInp} placeholder="0.00" /></div>
-            <div className="space-y-1.5 sm:col-span-2"><label className="text-xs font-semibold uppercase tracking-wide">Promise Date <span className="font-normal normal-case opacity-60">(SLA)</span></label><input type="date" value={promisedDelivery} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setPromisedDelivery(e.target.value)} className={inp} /></div>
+            <div className="space-y-1.5 sm:col-span-2"><label className="text-xs font-semibold uppercase tracking-wide">Promise date and time <span className="font-normal normal-case opacity-60">(SLA)</span></label><DateTimePicker minDate={new Date().toISOString()} value={promisedDelivery} onChange={setPromisedDelivery} aria-label="Promise date and time" /></div>
             <div className="space-y-1.5 sm:col-span-2"><label className="text-xs font-semibold uppercase tracking-wide">Special Instructions</label><textarea rows={2} value={specialInstructions} onChange={(e) => setSpecialInstructions(e.target.value)} className={textarea} placeholder="Handle with care, fragile, etc." /></div>
           </div>
         </div>
@@ -225,19 +279,7 @@ export function RegisterPackageModal({ onClose }: Props) {
             <Truck01 className="h-4 w-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Assign Rider <span className="font-normal normal-case opacity-60">(optional)</span></h3>
           </div>
-          <select
-            value={riderId}
-            onChange={(e) => setRiderId(e.target.value)}
-            className={inp}
-            disabled={!activeRiders}
-          >
-            <option value="">Skip — assign later</option>
-            {(activeRiders ?? []).map((rider: any) => (
-              <option key={rider.id} value={rider.id}>
-                {rider.user.firstName} {rider.user.lastName} · {rider.vehicleType ?? 'Rider'} · {rider.user.phone}
-              </option>
-            ))}
-          </select>
+          <SelectField value={riderId} onChange={setRiderId} disabled={!activeRiders} placeholder="Skip — assign later" aria-label="Assign rider" options={(activeRiders ?? []).map((rider: any) => ({ value: rider.id, label: `${rider.user.firstName} ${rider.user.lastName} · ${rider.vehicleType ?? 'Rider'} · ${rider.user.phone}` }))} />
           {!riderId && (
             <p className="mt-1.5 text-xs text-muted-foreground">
               You can assign a rider later by opening the package and clicking <strong>Assign Rider</strong>.

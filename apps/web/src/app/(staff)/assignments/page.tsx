@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { KanbanBoard } from '@/components/assignments/KanbanBoard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { SelectField } from '@/components/ui/SelectField';
 
 const COLUMNS = [
   { id: 'AWAITING_ASSIGNMENT', title: 'Unassigned' },
@@ -113,7 +114,7 @@ export default function AssignmentsPage() {
       if (!byRider.has(key)) byRider.set(key, { name: key, packages: [] });
       byRider.get(key)!.packages.push(pkg);
     }
-    const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const date = new Date().toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const rows = [...byRider.values()].map(({ name, packages }) => `
       <div class="rider-block">
         <div class="rider-header">${name} &nbsp;<span class="count">${packages.length} package${packages.length !== 1 ? 's' : ''}</span></div>
@@ -344,7 +345,7 @@ export default function AssignmentsPage() {
                   return (
                   <tr key={m.id} className="border-b last:border-0 hover:bg-muted/20">
                     <td className="px-4 py-2 text-muted-foreground">
-                      {new Date(m.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {new Date(m.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="px-4 py-2 font-medium">
                       {m.rider ? `${m.rider.user.firstName} ${m.rider.user.lastName}` : '—'}
@@ -442,20 +443,7 @@ export default function AssignmentsPage() {
                         </button>
                       )}
                       {p.status !== 'DELIVERED' && (
-                        <select
-                          defaultValue=""
-                          onChange={(e) => {
-                            if (!e.target.value) return;
-                            movePackage.mutate({ id: p.id, status: e.target.value });
-                            e.target.value = '';
-                          }}
-                          className="h-8 rounded-lg border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        >
-                          <option value="">Move to...</option>
-                          {COLUMNS.filter((c) => c.id !== p.status).map((c) => (
-                            <option key={c.id} value={c.id}>{c.title}</option>
-                          ))}
-                        </select>
+                        <SelectField value="" onChange={(status) => movePackage.mutate({ id: p.id, status })} placeholder="Move to…" options={COLUMNS.filter((column) => column.id !== p.status).map((column) => ({ value: column.id, label: column.title }))} aria-label={`Move ${p.trackingNumber} to status`} className="w-32" buttonClassName="h-8 rounded-lg px-2 text-xs" />
                       )}
                     </div>
                   </td>

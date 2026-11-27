@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Drawer } from '@/components/ui/Drawer';
+import { SelectField } from '@/components/ui/SelectField';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 
@@ -67,13 +68,7 @@ export function UserCreateDrawer({ onClose }: Props) {
 
         <div className="space-y-1 sm:col-span-2">
           <label className="text-sm font-medium">Role *</label>
-          <select
-            value={form.role}
-            onChange={(e) => set('role', e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {ROLES.map((r) => <option key={r}>{r}</option>)}
-          </select>
+          <SelectField value={form.role} onChange={(value) => set('role', value)} options={ROLES.map((role) => ({ value: role, label: role.replaceAll('_', ' ') }))} aria-label="Role" />
         </div>
       </div>
     </Drawer>

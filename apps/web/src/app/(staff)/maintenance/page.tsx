@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { Plus, Edit02, Trash01, AlertTriangle, CheckCircle, Tool02, Car01 } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/Drawer';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
 
 const MAINTENANCE_TYPES = ['Oil Change', 'Tire Replacement', 'Brake Service', 'Battery Replacement', 'Engine Repair', 'Transmission', 'Air Filter', 'Inspection', 'Insurance Renewal', 'Other'];
 const STATUS_OPTIONS = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
@@ -19,12 +21,13 @@ const STATUS_STYLE: Record<string, string> = {
 const inp = 'flex h-10 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 const fmt = (n: any) => n ? `₦${Number(n).toLocaleString()}` : '—';
 
-const EMPTY = { vehicleId: '', type: 'Oil Change', description: '', cost: '', mileageAtService: '', serviceDate: new Date().toISOString().slice(0, 10), nextServiceDate: '', nextServiceMileage: '', performedBy: '', status: 'COMPLETED', notes: '' };
+const EMPTY = { vehicleId: '', type: 'Oil Change', component: '', replacementDate: '', description: '', cost: '', mileageAtService: '', serviceDate: new Date().toISOString(), nextServiceDate: '', nextServiceMileage: '', performedBy: '', status: 'COMPLETED', notes: '' };
 
 type MaintenanceRecord = {
-  id: string; type: string; description?: string; cost?: number; mileageAtService?: number;
+  id: string; type: string; component?: string; replacementDate?: string; description?: string; cost?: number; mileageAtService?: number;
   serviceDate: string; nextServiceDate?: string; nextServiceMileage?: number;
   performedBy?: string; status: string; notes?: string; vehicleId: string;
+  repeatMaintenance?: boolean;
   vehicle?: { id: string; plateNumber: string; make: string; model: string };
 };
 
@@ -75,11 +78,13 @@ export default function MaintenancePage() {
     setForm({
       vehicleId: r.vehicleId,
       type: r.type,
+      component: r.component ?? '',
+      replacementDate: r.replacementDate ?? '',
       description: r.description ?? '',
       cost: r.cost ? String(r.cost) : '',
       mileageAtService: r.mileageAtService ? String(r.mileageAtService) : '',
-      serviceDate: r.serviceDate.slice(0, 10),
-      nextServiceDate: r.nextServiceDate ? r.nextServiceDate.slice(0, 10) : '',
+      serviceDate: r.serviceDate,
+      nextServiceDate: r.nextServiceDate ?? '',
       nextServiceMileage: r.nextServiceMileage ? String(r.nextServiceMileage) : '',
       performedBy: r.performedBy ?? '',
       status: r.status,
@@ -99,28 +104,21 @@ export default function MaintenancePage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <label className="text-xs font-semibold uppercase tracking-wide">Vehicle *</label>
-          <select value={form.vehicleId} onChange={(e) => set('vehicleId', e.target.value)} className={inp}>
-            <option value="">— Select vehicle —</option>
-            {(vehicles as any[]).map((v: any) => (
-              <option key={v.id} value={v.id}>{v.plateNumber} — {v.make} {v.model}</option>
-            ))}
-          </select>
+          <SelectField value={form.vehicleId} onChange={(value) => set('vehicleId', value)} placeholder="Select vehicle" aria-label="Vehicle" options={(vehicles as any[]).map((v: any) => ({ value: v.id, label: `${v.plateNumber} — ${v.make} ${v.model}` }))} />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Type *</label>
-          <select value={form.type} onChange={(e) => set('type', e.target.value)} className={inp}>
-            {MAINTENANCE_TYPES.map((t) => <option key={t}>{t}</option>)}
-          </select>
+          <SelectField value={form.type} onChange={(value) => set('type', value)} aria-label="Maintenance type" options={MAINTENANCE_TYPES.map((type) => ({ value: type, label: type }))} />
         </div>
+        <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Component / Part</label><input value={form.component} onChange={(e) => set('component', e.target.value)} className={inp} placeholder="e.g. front tyre, battery" /></div>
+        <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Replacement date and time</label><DateTimePicker value={form.replacementDate} onChange={(value) => set('replacementDate', value)} aria-label="Replacement date and time" /></div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Status</label>
-          <select value={form.status} onChange={(e) => set('status', e.target.value)} className={inp}>
-            {STATUS_OPTIONS.map((s) => <option key={s}>{s}</option>)}
-          </select>
+          <SelectField value={form.status} onChange={(value) => set('status', value)} aria-label="Maintenance status" options={STATUS_OPTIONS.map((status) => ({ value: status, label: status.replaceAll('_', ' ') }))} />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wide">Service Date *</label>
-          <input type="date" value={form.serviceDate} onChange={(e) => set('serviceDate', e.target.value)} className={inp} />
+          <label className="text-xs font-semibold uppercase tracking-wide">Service date and time *</label>
+          <DateTimePicker value={form.serviceDate} onChange={(value) => set('serviceDate', value)} aria-label="Service date and time" />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Cost (₦)</label>
@@ -135,8 +133,8 @@ export default function MaintenancePage() {
           <input value={form.performedBy} onChange={(e) => set('performedBy', e.target.value)} className={inp} placeholder="Mechanic name" />
         </div>
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wide">Next Service Date</label>
-          <input type="date" value={form.nextServiceDate} onChange={(e) => set('nextServiceDate', e.target.value)} className={inp} />
+          <label className="text-xs font-semibold uppercase tracking-wide">Next service date and time</label>
+          <DateTimePicker value={form.nextServiceDate} onChange={(value) => set('nextServiceDate', value)} aria-label="Next service date and time" />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Next Service Odometer (km)</label>
@@ -192,7 +190,7 @@ export default function MaintenancePage() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
             <div>
-              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Maintenance Due / Overdue</p>
+              <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Maintenance Due / Repeat Repair Review</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {alerts.map((a) => {
                   const overdue = a.nextServiceDate && new Date(a.nextServiceDate) < new Date();
@@ -201,7 +199,8 @@ export default function MaintenancePage() {
                       <span className="font-mono">{a.vehicle?.plateNumber}</span>
                       <span className="mx-1">·</span>
                       {a.type}
-                      <span className="ml-1 opacity-70">{overdue ? '⚠ Overdue' : `Due ${new Date(a.nextServiceDate!).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`}</span>
+                      <span className="ml-1 opacity-70">{overdue ? '⚠ Overdue' : a.nextServiceDate ? `Due ${new Date(a.nextServiceDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>
+                      {a.repeatMaintenance && <span className="ml-1 text-red-700">Repeated component repair — review</span>}
                     </div>
                   );
                 })}
@@ -213,10 +212,7 @@ export default function MaintenancePage() {
 
       {/* Filter */}
       <div className="flex gap-3">
-        <select value={vehicleFilter} onChange={(e) => setVehicleFilter(e.target.value)} className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <option value="">All Vehicles</option>
-          {(vehicles as any[]).map((v: any) => <option key={v.id} value={v.id}>{v.plateNumber} — {v.make} {v.model}</option>)}
-        </select>
+        <SelectField className="min-w-48" value={vehicleFilter} onChange={setVehicleFilter} aria-label="Filter by vehicle" options={[{ value: '', label: 'All Vehicles' }, ...(vehicles as any[]).map((v: any) => ({ value: v.id, label: `${v.plateNumber} — ${v.make} ${v.model}` }))]} />
       </div>
 
       {/* Table */}
@@ -245,13 +241,13 @@ export default function MaintenancePage() {
                         <p className="font-medium">{r.type}</p>
                         {r.description && <p className="text-xs text-muted-foreground truncate max-w-32">{r.description}</p>}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{new Date(r.serviceDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{new Date(r.serviceDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
                       <td className="px-4 py-3 tabular-nums">{r.cost ? fmt(r.cost) : '—'}</td>
                       <td className="px-4 py-3 text-muted-foreground">{r.mileageAtService ? `${Number(r.mileageAtService).toLocaleString()} km` : '—'}</td>
                       <td className="px-4 py-3">
                         {r.nextServiceDate ? (
                           <span className={nextOverdue ? 'text-red-600 font-semibold' : 'text-muted-foreground'}>
-                            {new Date(r.nextServiceDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {new Date(r.nextServiceDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                             {nextOverdue && ' ⚠'}
                           </span>
                         ) : '—'}

@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Package, LayoutAlt01, LogOut01, ChevronLeft, ChevronRight, File01 } from '@untitled-ui/icons-react';
+import { Package, LayoutAlt01, LogOut01, ChevronLeft, ChevronRight, File01, CreditCard01 } from '@untitled-ui/icons-react';
 import { useAuth } from '@/context/auth-context';
 
 const NAV = [
   { href: '/portal', label: 'Dashboard', icon: LayoutAlt01 },
   { href: '/portal/packages', label: 'My Packages', icon: Package },
   { href: '/portal/invoices', label: 'Invoices', icon: File01 },
+  { href: '/portal/statement', label: 'Account Statement', icon: CreditCard01 },
 ];
 
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {

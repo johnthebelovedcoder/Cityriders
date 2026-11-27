@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronDown, Check } from '@untitled-ui/icons-react';
+import { DateTimePicker } from './DateTimePicker';
 
 export type DateRange = { from: string; to: string };
 
@@ -126,19 +127,9 @@ export function PeriodFilter({ value, onChange, defaultPreset = 'this-month', cl
 
       {active === 'custom' && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <input
-            type="date"
-            value={value.from}
-            onChange={(e) => onChange({ ...value, from: e.target.value })}
-            className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+          <DateTimePicker mode="date" aria-label="Start date" value={value.from} onChange={(from) => onChange({ ...value, from })} />
           <span className="text-sm text-muted-foreground">-</span>
-          <input
-            type="date"
-            value={value.to}
-            onChange={(e) => onChange({ ...value, to: e.target.value })}
-            className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
+          <DateTimePicker mode="date" aria-label="End date" value={value.to} onChange={(to) => onChange({ ...value, to })} />
         </div>
       )}
     </div>

@@ -1,0 +1,23 @@
+CREATE TABLE "employees" (
+  "id" TEXT NOT NULL,
+  "name" TEXT NOT NULL,
+  "email" TEXT NOT NULL,
+  "phone" TEXT,
+  "role" TEXT NOT NULL,
+  "department" TEXT NOT NULL,
+  "employmentType" TEXT NOT NULL,
+  "basicSalary" DECIMAL(12,2) NOT NULL DEFAULT 0,
+  "housingAllowance" DECIMAL(12,2) NOT NULL DEFAULT 0,
+  "transportAllowance" DECIMAL(12,2) NOT NULL DEFAULT 0,
+  "ratePerDelivery" DECIMAL(12,2) NOT NULL DEFAULT 0,
+  "bankName" TEXT,
+  "accountNumber" TEXT,
+  "accountHolderName" TEXT,
+  "pensionPin" TEXT,
+  "additions" JSONB NOT NULL DEFAULT '[]',
+  "isActive" BOOLEAN NOT NULL DEFAULT TRUE,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "employees_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "employees_email_key" UNIQUE ("email")
+);

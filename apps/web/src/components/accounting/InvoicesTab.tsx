@@ -1,11 +1,15 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, XClose, CurrencyDollar, CheckCircle, AlertOctagon, File01 } from '@untitled-ui/icons-react';
+import { Plus, XClose, CurrencyDollar, CheckCircle, AlertOctagon, File01, SlashCircle01, AlertTriangle, Printer, Upload01 } from '@untitled-ui/icons-react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { PaymentProofModal } from './PaymentProofModal';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
 
 const fmt = (n: number | string) => `₦${Number(n).toLocaleString()}`;
 
@@ -19,18 +23,39 @@ const STATUS_CLS: Record<string, string> = {
   DISPUTED: 'bg-orange-50 text-orange-700 border border-orange-200',
 };
 
+function defaultDueDate(termsDays: number) {
+  const d = new Date();
+  d.setDate(d.getDate() + termsDays);
+  d.setHours(17, 0, 0, 0);
+  return d.toISOString();
+}
+
 function GenerateInvoiceModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [customerId, setCustomerId] = useState('');
   const [notes, setNotes] = useState('');
+  const [dueDate, setDueDate] = useState('');
 
   const { data: customers } = useQuery({
     queryKey: ['customers-invoice'],
     queryFn: () => api.get('/customers?paymentTerms=INVOICE').then(r => r.data?.data ?? r.data ?? []),
   });
 
+  const { data: settings } = useQuery({
+    queryKey: ['settings'],
+    queryFn: () => api.get('/settings').then(r => r.data),
+    onSuccess: (s: any) => {
+      if (!dueDate) setDueDate(defaultDueDate(s.invoicePaymentTermsDays ?? 30));
+    },
+  } as any);
+
+  // Seed due date once settings load (or use default 30 days)
+  if (!dueDate && settings) {
+    setDueDate(defaultDueDate((settings as any).invoicePaymentTermsDays ?? 30));
+  }
+
   const mut = useMutation({
-    mutationFn: () => api.post('/invoices', { customerId, notes: notes || undefined }).then(r => r.data),
+    mutationFn: () => api.post('/invoices', { customerId, notes: notes || undefined, dueDate: dueDate || undefined }).then(r => r.data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['invoices'] }); onClose(); },
   });
 
@@ -46,13 +71,13 @@ function GenerateInvoiceModal({ onClose }: { onClose: () => void }) {
         <form onSubmit={e => { e.preventDefault(); mut.mutate(); }} className="space-y-4 p-5">
           <div>
             <label className="block text-sm font-medium mb-1">Customer</label>
-            <select className={inp} required value={customerId} onChange={e => setCustomerId(e.target.value)}>
-              <option value="">Select customer…</option>
-              {(customers ?? []).map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <SelectField value={customerId} onChange={setCustomerId} placeholder="Select customer…" aria-label="Invoice customer" options={(customers ?? []).map((c: any) => ({ value: c.id, label: c.name }))} />
             <p className="mt-1 text-xs text-muted-foreground">Only invoice-billing customers shown. Invoice covers all uninvoiced delivered packages.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Due date and time</label>
+            <DateTimePicker value={dueDate} onChange={setDueDate} aria-label="Invoice due date and time" />
+            <p className="mt-1 text-xs text-muted-foreground">Default from your payment terms setting ({(settings as any)?.invoicePaymentTermsDays ?? 30} days).</p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Notes <span className="text-muted-foreground font-normal">(optional)</span></label>
@@ -71,8 +96,13 @@ function GenerateInvoiceModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+const ACTIONABLE = new Set(['DRAFT', 'SENT', 'OVERDUE', 'PARTIALLY_PAID']);
+const CAN_DISPUTE = new Set(['SENT', 'OVERDUE', 'PARTIALLY_PAID']);
+
 export function InvoicesTab() {
+  const qc = useQueryClient();
   const [showGenerate, setShowGenerate] = useState(false);
+  const [proofInvoice, setProofInvoice] = useState<{ id: string; number: string } | null>(null);
   const [search, setSearch] = useState('');
   const { data: allInvoices = [], isLoading } = useQuery({
     queryKey: ['invoices'],
@@ -81,6 +111,22 @@ export function InvoicesTab() {
   const invoices = search
     ? allInvoices.filter((i: any) => JSON.stringify(i).toLowerCase().includes(search.toLowerCase()))
     : allInvoices;
+
+  const statusMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.patch(`/invoices/${id}/status`, { status }).then(r => r.data),
+    onSuccess: (_, { status }) => {
+      toast.success(status === 'VOID' ? 'Invoice voided' : 'Invoice marked as disputed');
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+    },
+    onError: () => toast.error('Action failed'),
+  });
+
+  function confirmVoid(inv: any) {
+    if (confirm(`Void invoice ${inv.invoiceNumber}? This cannot be undone.`)) {
+      statusMut.mutate({ id: inv.id, status: 'VOID' });
+    }
+  }
 
   const outstanding = invoices.filter((i: any) => i.status !== 'PAID').reduce((s: number, i: any) => s + Number(i.totalAmount), 0);
   const paid = invoices.filter((i: any) => i.status === 'PAID').reduce((s: number, i: any) => s + Number(i.totalAmount), 0);
@@ -145,8 +191,8 @@ export function InvoicesTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40 text-left">
-                {['Invoice #', 'Customer', 'Packages', 'Amount', 'Due Date', 'Status', 'Aging'].map(h => (
-                  <th key={h} className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
+                {['Invoice #', 'Customer', 'Packages', 'Amount', 'Due Date', 'Status', 'Aging', ''].map((h, i) => (
+                  <th key={i} className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -165,7 +211,7 @@ export function InvoicesTab() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{inv._count?.lineItems ?? '—'}</td>
                   <td className="px-4 py-3 tabular-nums font-semibold">{fmt(inv.totalAmount)}</td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(inv.dueDate).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(inv.dueDate).toLocaleString()}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CLS[inv.status] ?? 'bg-gray-100 text-gray-700'}`}>
                       {inv.status.replace('_', ' ')}
@@ -179,6 +225,62 @@ export function InvoicesTab() {
                       ) : null;
                     })()}
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      {/* Print invoice */}
+                      <a
+                        href={`/accounting/invoices/${inv.id}/print`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        title="Print / download invoice"
+                        className="rounded p-1 hover:bg-blue-50 text-muted-foreground hover:text-blue-600"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                      </a>
+                      {/* Print receipt (PAID only) */}
+                      {inv.status === 'PAID' && (
+                        <a
+                          href={`/accounting/invoices/${inv.id}/print?receipt=1`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          title="Print receipt"
+                          className="rounded p-1 hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"
+                        >
+                          <CheckCircle className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {/* Upload proof of payment */}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setProofInvoice({ id: inv.id, number: inv.invoiceNumber }); }}
+                        title="Upload proof of payment"
+                        className="rounded p-1 hover:bg-emerald-50 text-muted-foreground hover:text-emerald-600"
+                      >
+                        <Upload01 className="h-3.5 w-3.5" />
+                      </button>
+                      {CAN_DISPUTE.has(inv.status) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); statusMut.mutate({ id: inv.id, status: 'DISPUTED' }); }}
+                          disabled={statusMut.isPending}
+                          title="Mark as disputed"
+                          className="rounded p-1 hover:bg-orange-50 text-muted-foreground hover:text-orange-600 disabled:opacity-50"
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {ACTIONABLE.has(inv.status) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); confirmVoid(inv); }}
+                          disabled={statusMut.isPending}
+                          title="Void invoice"
+                          className="rounded p-1 hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-50"
+                        >
+                          <SlashCircle01 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -187,6 +289,13 @@ export function InvoicesTab() {
       </div>
 
       {showGenerate && <GenerateInvoiceModal onClose={() => setShowGenerate(false)} />}
+      {proofInvoice && (
+        <PaymentProofModal
+          invoiceId={proofInvoice.id}
+          invoiceNumber={proofInvoice.number}
+          onClose={() => setProofInvoice(null)}
+        />
+      )}
     </div>
   );
 }

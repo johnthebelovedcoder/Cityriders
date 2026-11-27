@@ -6,14 +6,15 @@ import { generateTrackingNumber } from '@cityrider/utils';
 export class PortalService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async findCustomerByEmail(email: string) {
-    const customer = await this.prisma.customer.findFirst({ where: { email } });
+  private async findCustomerByUserId(userId: string) {
+    const [link] = await this.prisma.$queryRaw<Array<{ customerId: string | null }>>`SELECT "customerId" FROM "users" WHERE "id" = ${userId} LIMIT 1`;
+    const customer = link?.customerId ? await this.prisma.customer.findUnique({ where: { id: link.customerId } }) : null;
     if (!customer) throw new NotFoundException('No customer account linked to this user');
     return customer;
   }
 
-  async getDashboard(userEmail: string) {
-    const customer = await this.findCustomerByEmail(userEmail);
+  async getDashboard(userId: string) {
+    const customer = await this.findCustomerByUserId(userId);
 
     const [total, byStatus, recent] = await Promise.all([
       this.prisma.package.count({ where: { senderId: customer.id } }),
@@ -40,13 +41,13 @@ export class PortalService {
     };
   }
 
-  private async findUserByEmail(email: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+  private async findUserById(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException('User account not found');
     return user;
   }
 
-  async createDeliveryRequest(userEmail: string, dto: {
+  async createDeliveryRequest(userId: string, dto: {
     recipientName: string;
     recipientPhone: string;
     pickupAddress?: string;
@@ -60,8 +61,8 @@ export class PortalService {
     }
 
     const [customer, user] = await Promise.all([
-      this.findCustomerByEmail(userEmail),
-      this.findUserByEmail(userEmail),
+      this.findCustomerByUserId(userId),
+      this.findUserById(userId),
     ]);
 
     return this.prisma.$transaction(async (tx) => {
@@ -117,8 +118,8 @@ export class PortalService {
     });
   }
 
-  async getInvoices(userEmail: string) {
-    const customer = await this.findCustomerByEmail(userEmail);
+  async getInvoices(userId: string) {
+    const customer = await this.findCustomerByUserId(userId);
     return this.prisma.invoice.findMany({
       where: { customerId: customer.id },
       include: { _count: { select: { lineItems: true } } },
@@ -127,10 +128,37 @@ export class PortalService {
     });
   }
 
-  async reschedulePackage(userEmail: string, packageId: string, requestedDate?: string) {
+  async getStatement(userId: string) {
+    const customer = await this.findCustomerByUserId(userId);
+    const [invoices, adjustments] = await Promise.all([
+      this.prisma.invoice.findMany({
+        where: { customerId: customer.id },
+        include: { payments: true },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.$queryRaw<any[]>`SELECT "id", "amount", "reason", "effectiveAt" FROM "customer_account_adjustments" WHERE "customerId" = ${customer.id}`,
+    ]);
+    const transactions = invoices.flatMap((invoice) => [
+      { date: invoice.createdAt, type: 'INVOICE', reference: invoice.invoiceNumber, description: `Invoice ${invoice.invoiceNumber}`, debit: Number(invoice.totalAmount), credit: 0 },
+      ...invoice.payments.map((payment) => ({ date: payment.recordedAt, type: 'PAYMENT', reference: payment.reference, description: `Payment for ${invoice.invoiceNumber}`, debit: 0, credit: Number(payment.amount) })),
+    ]);
+    for (const adjustment of adjustments) {
+      const amount = Number(adjustment.amount);
+      transactions.push({ date: adjustment.effectiveAt, type: amount < 0 ? 'CREDIT' : 'ADJUSTMENT', reference: adjustment.id, description: adjustment.reason, debit: amount > 0 ? amount : 0, credit: amount < 0 ? Math.abs(amount) : 0 });
+    }
+    transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let balance = 0;
+    const rows = transactions.map((row) => {
+      balance += row.debit - row.credit;
+      return { ...row, balance };
+    });
+    return { customer: { id: customer.id, name: customer.name }, openingBalance: 0, closingBalance: balance, rows };
+  }
+
+  async reschedulePackage(userId: string, packageId: string, requestedDate?: string) {
     const [customer, user] = await Promise.all([
-      this.findCustomerByEmail(userEmail),
-      this.findUserByEmail(userEmail),
+      this.findCustomerByUserId(userId),
+      this.findUserById(userId),
     ]);
     const pkg = await this.prisma.package.findFirst({
       where: { id: packageId, senderId: customer.id },
@@ -158,8 +186,8 @@ export class PortalService {
     return { success: true, message: 'Reschedule request submitted' };
   }
 
-  async getPackages(userEmail: string, query: { status?: string; from?: string; to?: string; page?: number; limit?: number } = {}) {
-    const customer = await this.findCustomerByEmail(userEmail);
+  async getPackages(userId: string, query: { status?: string; from?: string; to?: string; page?: number; limit?: number } = {}) {
+    const customer = await this.findCustomerByUserId(userId);
     const { status, from, to, page = 1, limit = 20 } = query;
 
     const where: any = { senderId: customer.id };

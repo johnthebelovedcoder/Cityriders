@@ -5,6 +5,27 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getRecentActivity() {
+    const events = await this.prisma.packageStatusEvent.findMany({
+      take: 8,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        status: true,
+        createdAt: true,
+        packageId: true,
+        package: { select: { trackingNumber: true } },
+      },
+    });
+    return events.map((event) => ({
+      id: event.id,
+      type: event.status,
+      time: event.createdAt,
+      packageId: event.packageId,
+      message: `${event.package.trackingNumber} status changed to ${String(event.status).replaceAll('_', ' ').toLowerCase()}`,
+    }));
+  }
+
   async getStats() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);

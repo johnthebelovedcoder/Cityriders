@@ -10,6 +10,7 @@ import { MetricCard } from '@/components/ui/MetricCard';
 import { Drawer } from '@/components/ui/Drawer';
 import { CustomerDetailDrawer } from '@/components/customers/CustomerDetailDrawer';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SelectField } from '@/components/ui/SelectField';
 
 const inp = 'flex h-11 w-full rounded-lg border border-input bg-background px-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
@@ -28,11 +29,17 @@ export default function CustomersPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
+  const [billingCycle, setBillingCycle] = useState('MONTHLY');
 
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [editContactPerson, setEditContactPerson] = useState('');
+  const [editBillingAddress, setEditBillingAddress] = useState('');
+  const [editBillingCycle, setEditBillingCycle] = useState('MONTHLY');
 
   const { data: stats } = useQuery({
     queryKey: ['customers-stats', range.from, range.to],
@@ -46,12 +53,12 @@ export default function CustomersPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: () => api.post('/customers', { name, phone, email: email || undefined, address: address || undefined }),
+    mutationFn: () => api.post('/customers', { name, phone, email: email || undefined, address: address || undefined, contactPerson: contactPerson || undefined, billingAddress: billingAddress || undefined, billingCycle }),
     onSuccess: () => {
       toast.success('Customer created');
       qc.invalidateQueries({ queryKey: ['customers'] });
       setShowCreate(false);
-      setName(''); setPhone(''); setEmail(''); setAddress('');
+      setName(''); setPhone(''); setEmail(''); setAddress(''); setContactPerson(''); setBillingAddress(''); setBillingCycle('MONTHLY');
     },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed to create customer'),
   });
@@ -62,6 +69,9 @@ export default function CustomersPage() {
       phone: editPhone || undefined,
       email: editEmail || undefined,
       address: editAddress || undefined,
+      contactPerson: editContactPerson || undefined,
+      billingAddress: editBillingAddress || undefined,
+      billingCycle: editBillingCycle || undefined,
     }),
     onSuccess: () => {
       toast.success('Customer updated');
@@ -116,7 +126,7 @@ export default function CustomersPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/customers/${id}`),
     onSuccess: () => {
-      toast.success('Customer deleted');
+      toast.success('Customer archived');
       qc.invalidateQueries({ queryKey: ['customers'] });
       setDeleteConfirmId(null);
     },
@@ -130,6 +140,9 @@ export default function CustomersPage() {
     setEditPhone(c.phone ?? '');
     setEditEmail(c.email ?? '');
     setEditAddress(c.address ?? '');
+    setEditContactPerson(c.contactPerson ?? '');
+    setEditBillingAddress(c.billingAddress ?? '');
+    setEditBillingCycle(c.billingCycle ?? 'MONTHLY');
   }
 
   return (
@@ -225,7 +238,7 @@ export default function CustomersPage() {
                       <button
                         onClick={() => setDeleteConfirmId(c.id)}
                         className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-red-50 hover:text-red-600"
-                        title="Delete"
+                        title="Archive customer"
                       >
                         <Trash01 className="h-3.5 w-3.5" />
                       </button>
@@ -260,7 +273,13 @@ export default function CustomersPage() {
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Name *</label><input required value={name} onChange={(e) => setName(e.target.value)} className={inp} /></div>
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Phone *</label><input type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} className={inp} /></div>
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inp} /></div>
+            <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Business Contact Person</label><input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} className={inp} /></div>
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Address</label><input value={address} onChange={(e) => setAddress(e.target.value)} className={inp} /></div>
+            <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Billing Address</label><input value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} className={inp} /></div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide">Billing Cycle</label>
+              <SelectField value={billingCycle} onChange={setBillingCycle} options={[{ value: 'DAILY', label: 'Daily' }, { value: 'WEEKLY', label: 'Weekly' }, { value: 'BI_WEEKLY', label: 'Bi-Weekly' }, { value: 'MONTHLY', label: 'Monthly' }]} aria-label="Billing cycle" />
+            </div>
           </div>
         </Drawer>
       )}
@@ -287,7 +306,13 @@ export default function CustomersPage() {
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Name *</label><input required value={editName} onChange={(e) => setEditName(e.target.value)} className={inp} /></div>
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Phone *</label><input type="tel" required value={editPhone} onChange={(e) => setEditPhone(e.target.value)} className={inp} /></div>
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Email</label><input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className={inp} /></div>
+            <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Business Contact Person</label><input value={editContactPerson} onChange={(e) => setEditContactPerson(e.target.value)} className={inp} /></div>
             <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Address</label><input value={editAddress} onChange={(e) => setEditAddress(e.target.value)} className={inp} /></div>
+            <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Billing Address</label><input value={editBillingAddress} onChange={(e) => setEditBillingAddress(e.target.value)} className={inp} /></div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide">Billing Cycle</label>
+              <SelectField value={editBillingCycle} onChange={setEditBillingCycle} options={[{ value: 'DAILY', label: 'Daily' }, { value: 'WEEKLY', label: 'Weekly' }, { value: 'BI_WEEKLY', label: 'Bi-Weekly' }, { value: 'MONTHLY', label: 'Monthly' }]} aria-label="Billing cycle" />
+            </div>
           </div>
         </Drawer>
       )}

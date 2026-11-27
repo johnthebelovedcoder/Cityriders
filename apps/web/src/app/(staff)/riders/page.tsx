@@ -11,6 +11,7 @@ import { CODHandoverModal } from '@/components/riders/CODHandoverModal';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { RiderDetailDrawer } from '@/components/riders/RiderDetailDrawer';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
 
 const inp = 'flex h-11 w-full rounded-lg border border-input bg-background px-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
@@ -21,7 +22,7 @@ export default function RidersPage() {
   const [handoverRider, setHandoverRider] = useState<{ id: string; name: string } | null>(null);
   const [detailRiderId, setDetailRiderId] = useState<string | null>(null);
   const { range, setRange } = usePeriodFilter('this-month');
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', vehicleType: '', vehiclePlate: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', vehicleType: '', vehiclePlate: '', emergencyContact: '', dateJoined: new Date().toISOString() });
 
   const [editRider, setEditRider] = useState<any | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -31,6 +32,8 @@ export default function RidersPage() {
   const [editPhone, setEditPhone] = useState('');
   const [editVehicleType, setEditVehicleType] = useState('');
   const [editVehiclePlate, setEditVehiclePlate] = useState('');
+  const [editEmergencyContact, setEditEmergencyContact] = useState('');
+  const [editDateJoined, setEditDateJoined] = useState('');
 
   const { data: riderStats } = useQuery({
     queryKey: ['riders-stats', range.from, range.to],
@@ -49,7 +52,7 @@ export default function RidersPage() {
       toast.success('Rider created');
       qc.invalidateQueries({ queryKey: ['riders'] });
       setShowCreate(false);
-      setForm({ firstName: '', lastName: '', email: '', phone: '', password: '', vehicleType: '', vehiclePlate: '' });
+      setForm({ firstName: '', lastName: '', email: '', phone: '', password: '', vehicleType: '', vehiclePlate: '', emergencyContact: '', dateJoined: new Date().toISOString() });
     },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed to create rider'),
   });
@@ -62,6 +65,8 @@ export default function RidersPage() {
       phone: editPhone || undefined,
       vehicleType: editVehicleType || undefined,
       vehiclePlate: editVehiclePlate || undefined,
+      emergencyContact: editEmergencyContact || undefined,
+      dateJoined: editDateJoined || undefined,
     }),
     onSuccess: () => {
       toast.success('Rider updated');
@@ -75,11 +80,11 @@ export default function RidersPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/riders/${id}`),
     onSuccess: () => {
-      toast.success('Rider deleted');
+      toast.success('Rider deactivated');
       qc.invalidateQueries({ queryKey: ['riders'] });
       setDeleteConfirmId(null);
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed to delete rider'),
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed to deactivate rider'),
   });
 
   function openEdit(r: any, e: React.MouseEvent) {
@@ -91,6 +96,8 @@ export default function RidersPage() {
     setEditPhone(r.user.phone ?? '');
     setEditVehicleType(r.vehicleType ?? '');
     setEditVehiclePlate(r.vehiclePlate ?? '');
+    setEditEmergencyContact(r.emergencyContact ?? '');
+    setEditDateJoined(r.dateJoined ?? '');
   }
 
   return (
@@ -212,7 +219,7 @@ export default function RidersPage() {
                         <button onClick={() => setDeleteConfirmId(null)} className="rounded px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted">Cancel</button>
                       </div>
                     ) : (
-                      <button onClick={() => setDeleteConfirmId(r.id)} className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Delete">
+                      <button onClick={() => setDeleteConfirmId(r.id)} className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-red-50 hover:text-red-600" title="Deactivate rider">
                         <Trash01 className="h-3.5 w-3.5" />
                       </button>
                     )}
@@ -278,6 +285,8 @@ export default function RidersPage() {
               <label className="text-xs font-semibold uppercase tracking-wide">Plate Number</label>
               <input value={editVehiclePlate} onChange={(e) => setEditVehiclePlate(e.target.value)} className={inp} placeholder="e.g. LAG-123AB" />
             </div>
+            <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Emergency Contact</label><input value={editEmergencyContact} onChange={(e) => setEditEmergencyContact(e.target.value)} className={inp} placeholder="Name and phone" /></div>
+            <div className="space-y-1.5"><label className="text-xs font-semibold uppercase tracking-wide">Date joined</label><DateTimePicker value={editDateJoined} onChange={setEditDateJoined} aria-label="Rider join date and time" /></div>
           </div>
         </Drawer>
       )}
@@ -307,16 +316,12 @@ export default function RidersPage() {
               { label: 'Phone', key: 'phone', type: 'tel' },
               { label: 'Vehicle Type', key: 'vehicleType' },
               { label: 'Plate Number', key: 'vehiclePlate' },
+              { label: 'Emergency Contact', key: 'emergencyContact' },
+              { label: 'Date Joined', key: 'dateJoined' },
             ].map(({ label, key, type, required }) => (
               <div key={key} className="space-y-1.5">
                 <label className="text-xs font-semibold uppercase tracking-wide">{label}</label>
-                <input
-                  type={type ?? 'text'}
-                  required={required}
-                  value={(form as any)[key]}
-                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                  className={inp}
-                />
+                {key === 'dateJoined' ? <DateTimePicker value={(form as any)[key]} onChange={(value) => setForm((f) => ({ ...f, [key]: value }))} aria-label="Rider join date and time" /> : <input type={type ?? 'text'} required={required} value={(form as any)[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} className={inp} />}
               </div>
             ))}
           </div>

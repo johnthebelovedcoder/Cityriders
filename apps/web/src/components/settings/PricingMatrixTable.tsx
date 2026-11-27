@@ -5,12 +5,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Trash01, Plus } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
+import { SelectField } from '@/components/ui/SelectField';
 
 type Zone = { id: string; name: string };
 type MatrixEntry = { id: string; fromZoneId: string; toZoneId: string; baseRate: number; perKgRate: number; fromZone: Zone; toZone: Zone };
 
 const inputCls = 'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
-const selectCls = 'flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 const EMPTY = { fromZoneId: '', toZoneId: '', baseRate: '', perKgRate: '0' };
 
@@ -69,17 +69,11 @@ export function PricingMatrixTable({ zones }: { zones: Zone[] }) {
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-1">
               <label className="text-xs font-medium">From Zone</label>
-              <select value={form.fromZoneId} onChange={(e) => setForm((v) => ({ ...v, fromZoneId: e.target.value }))} className={selectCls}>
-                <option value="">Select zone…</option>
-                {zones.map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
-              </select>
+              <SelectField value={form.fromZoneId} onChange={(fromZoneId) => setForm((current) => ({ ...current, fromZoneId }))} placeholder="Select zone…" options={zones.map((zone) => ({ value: zone.id, label: zone.name }))} aria-label="From zone" buttonClassName="h-9 rounded-md" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">To Zone</label>
-              <select value={form.toZoneId} onChange={(e) => setForm((v) => ({ ...v, toZoneId: e.target.value }))} className={selectCls}>
-                <option value="">Select zone…</option>
-                {zones.filter((z) => z.id !== form.fromZoneId).map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
-              </select>
+              <SelectField value={form.toZoneId} onChange={(toZoneId) => setForm((current) => ({ ...current, toZoneId }))} placeholder="Select zone…" options={zones.filter((zone) => zone.id !== form.fromZoneId).map((zone) => ({ value: zone.id, label: zone.name }))} aria-label="To zone" buttonClassName="h-9 rounded-md" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">Base Rate (NGN)</label>

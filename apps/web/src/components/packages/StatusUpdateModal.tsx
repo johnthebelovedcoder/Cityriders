@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/Drawer';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
 
 const STATUS_FLOW = [
   { value: 'PENDING',           label: 'Pending' },
@@ -73,27 +75,20 @@ export function StatusUpdateModal({ packageId, currentStatus, onClose }: Props) 
       <div className="space-y-4">
         <div className="space-y-1">
           <label className="text-sm font-medium">New Status</label>
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setReasonCodeId(''); setReattemptAt(''); }} className={inputCls}>
-            {STATUS_FLOW.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
+          <SelectField value={status} onChange={(value) => { setStatus(value); setReasonCodeId(''); setReattemptAt(''); }} options={STATUS_FLOW.map((item) => ({ value: item.value, label: item.label }))} aria-label="New status" />
         </div>
 
         {status === 'FAILED' && (
           <div className="space-y-1">
             <label className="text-sm font-medium">Failure Reason <span className="text-destructive">*</span></label>
-            <select value={reasonCodeId} onChange={(e) => setReasonCodeId(e.target.value)} className={inputCls}>
-              <option value="">Select reason…</option>
-              {reasonCodes.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-            </select>
+            <SelectField value={reasonCodeId} onChange={setReasonCodeId} placeholder="Select reason…" options={reasonCodes.map((reason) => ({ value: reason.id, label: reason.label }))} aria-label="Failure reason" />
           </div>
         )}
 
         {status === 'RESCHEDULED' && (
           <div className="space-y-1">
-            <label className="text-sm font-medium">Re-attempt Date</label>
-            <input type="date" value={reattemptAt} onChange={(e) => setReattemptAt(e.target.value)} className={inputCls} min={new Date().toISOString().split('T')[0]} />
+            <label className="text-sm font-medium">Re-attempt date and time</label>
+            <DateTimePicker minDate={new Date().toISOString()} value={reattemptAt} onChange={setReattemptAt} aria-label="Re-attempt date and time" />
           </div>
         )}
 

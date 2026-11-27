@@ -46,27 +46,30 @@ export class ReportsService {
     const dateRange = this.range(from, to);
     const where = dateRange ? { paymentDate: dateRange } : {};
 
-    const payments = await this.prisma.payment.findMany({
-      where,
-      select: { paymentDate: true, amount: true, method: true },
-    });
-
-    const total = payments.reduce((s, p) => s + Number(p.amount), 0);
+    const [payments, invoicePayments] = await Promise.all([
+      this.prisma.payment.findMany({ where: { ...where, status: 'COMPLETED' }, select: { paymentDate: true, amount: true, method: true } }),
+      this.prisma.invoicePayment.findMany({ where: dateRange ? { recordedAt: dateRange } : undefined, select: { recordedAt: true, amount: true, method: true } }),
+    ]);
+    const receipts = [
+      ...payments.map((p) => ({ date: p.paymentDate, amount: p.amount, method: p.method })),
+      ...invoicePayments.map((p) => ({ date: p.recordedAt, amount: p.amount, method: p.method })),
+    ];
+    const total = receipts.reduce((s, p) => s + Number(p.amount), 0);
 
     const dayMap: Record<string, number> = {};
-    for (const p of payments) {
-      const day = new Date(p.paymentDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    for (const p of receipts) {
+      const day = new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
       dayMap[day] = (dayMap[day] ?? 0) + Number(p.amount);
     }
 
     const methodMap: Record<string, number> = {};
-    for (const p of payments) {
+    for (const p of receipts) {
       methodMap[p.method] = (methodMap[p.method] ?? 0) + Number(p.amount);
     }
 
     return {
       total,
-      transactionCount: payments.length,
+      transactionCount: receipts.length,
       byDay: Object.entries(dayMap).map(([date, amount]) => ({ date, amount })),
       byMethod: Object.entries(methodMap).map(([method, amount]) => ({ method: method.replace(/_/g, ' '), amount })),
     };
@@ -111,13 +114,15 @@ export class ReportsService {
     const now = new Date();
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
 
-    const [payAgg, expAgg, monthPayments, monthExpenses, expByCategory] = await Promise.all([
-      this.prisma.payment.aggregate({ where: payWhere, _sum: { amount: true } }),
+    const [payAgg, invoicePayAgg, expAgg, monthPayments, monthInvoicePayments, monthExpenses, expByCategory] = await Promise.all([
+      this.prisma.payment.aggregate({ where: { ...payWhere, status: 'COMPLETED' }, _sum: { amount: true } }),
+      this.prisma.invoicePayment.aggregate({ where: dateRange ? { recordedAt: dateRange } : {}, _sum: { amount: true } }),
       this.prisma.expense.aggregate({ where: expWhere, _sum: { amount: true } }),
       this.prisma.payment.findMany({
-        where: { paymentDate: { gte: sixMonthsAgo } },
+        where: { paymentDate: { gte: sixMonthsAgo }, status: 'COMPLETED' },
         select: { paymentDate: true, amount: true },
       }),
+      this.prisma.invoicePayment.findMany({ where: { recordedAt: { gte: sixMonthsAgo } }, select: { recordedAt: true, amount: true } }),
       this.prisma.expense.findMany({
         where: { expenseDate: { gte: sixMonthsAgo } },
         select: { expenseDate: true, amount: true },
@@ -125,11 +130,11 @@ export class ReportsService {
       this.prisma.expense.groupBy({ by: ['category'], where: expWhere, _sum: { amount: true } }),
     ]);
 
-    const revenue = Number(payAgg._sum.amount ?? 0);
+    const revenue = Number(payAgg._sum.amount ?? 0) + Number(invoicePayAgg._sum.amount ?? 0);
     const expenses = Number(expAgg._sum.amount ?? 0);
     const profit = revenue - expenses;
 
-    const byMonth = this.buildMonthly(monthPayments, monthExpenses, 6);
+    const byMonth = this.buildMonthly([...monthPayments, ...monthInvoicePayments.map((p) => ({ paymentDate: p.recordedAt, amount: p.amount }))], monthExpenses, 6);
 
     return {
       revenue,
@@ -184,48 +189,51 @@ export class ReportsService {
   async getSlaBreach(from?: string, to?: string) {
     const slaHours = 4;
     const dateRange = this.range(from, to);
-    const where: any = { status: { in: ['IN_TRANSIT', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DISPATCHED'] } };
-    if (dateRange) where.createdAt = dateRange;
-
-    const packages = await this.prisma.package.findMany({
-      where,
-      include: {
-        assignments: {
-          where: { isActive: true },
-          include: { rider: { include: { user: { select: { firstName: true, lastName: true } } } } },
+    const where: any = { status: 'DELIVERED' };
+    if (dateRange) where.statusHistory = { some: { status: 'DELIVERED', createdAt: dateRange } };
+    const [packages, zones] = await Promise.all([
+      this.prisma.package.findMany({
+        where,
+        select: {
+          id: true, trackingNumber: true, destCity: true, toZoneId: true,
+          statusHistory: { where: { status: { in: ['IN_TRANSIT', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DISPATCHED', 'DELIVERED'] } }, orderBy: { createdAt: 'asc' }, select: { status: true, createdAt: true } },
         },
-      },
-    });
-
-    const breached = packages.filter((p) => {
-      const hours = (Date.now() - new Date(p.updatedAt).getTime()) / (1000 * 60 * 60);
-      return hours > slaHours;
-    });
-
-    const byRider: Record<string, { riderName: string; count: number }> = {};
-    for (const p of breached) {
-      const rider = p.assignments[0]?.rider;
-      if (!rider) continue;
-      const name = `${rider.user.firstName} ${rider.user.lastName}`;
-      byRider[rider.id] = byRider[rider.id] ?? { riderName: name, count: 0 };
-      byRider[rider.id]!.count++;
-    }
-
-    return {
-      total: breached.length,
-      packages: breached.map((p) => {
-        const rider = p.assignments[0]?.rider;
-        const hoursElapsed = (Date.now() - new Date(p.updatedAt).getTime()) / (1000 * 60 * 60);
-        return {
-          id: p.id,
-          trackingNumber: p.trackingNumber,
-          status: p.status,
-          destCity: p.destCity,
-          hoursElapsed: Math.round(hoursElapsed * 10) / 10,
-          riderName: rider ? `${rider.user.firstName} ${rider.user.lastName}` : null,
-        };
       }),
-      byRider: Object.values(byRider).sort((a, b) => b.count - a.count),
+      this.prisma.zone.findMany({ select: { id: true, name: true } }),
+    ]);
+    const zoneName = new Map(zones.map((z) => [z.id, z.name]));
+    const records = packages.flatMap((pkg) => {
+      const events = pkg.statusHistory;
+      const start = [...events].reverse().find((e) => ['DISPATCHED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY'].includes(e.status));
+      const delivered = [...events].reverse().find((e) => e.status === 'DELIVERED');
+      if (!start || !delivered) return [];
+      const deliveryHours = Math.max(0, (delivered.createdAt.getTime() - start.createdAt.getTime()) / 3_600_000);
+      return [{ trackingNumber: pkg.trackingNumber, zone: pkg.toZoneId ? zoneName.get(pkg.toZoneId) ?? 'Unknown' : pkg.destCity || 'Unassigned', date: delivered.createdAt.toISOString().slice(0, 10), deliveryHours, breached: deliveryHours > slaHours }];
+    });
+    const byDayMap = new Map<string, { date: string; delivered: number; breached: number }>();
+    const byZoneMap = new Map<string, { zone: string; total: number; breached: number }>();
+    for (const row of records) {
+      const day = byDayMap.get(row.date) ?? { date: row.date, delivered: 0, breached: 0 };
+      day.delivered++;
+      if (row.breached) day.breached++;
+      byDayMap.set(row.date, day);
+      const zone = byZoneMap.get(row.zone) ?? { zone: row.zone, total: 0, breached: 0 };
+      zone.total++;
+      if (row.breached) zone.breached++;
+      byZoneMap.set(row.zone, zone);
+    }
+    const breachedRecords = records.filter((r) => r.breached).sort((a, b) => b.deliveryHours - a.deliveryHours);
+    const breachedPackages = breachedRecords.length;
+    const avgDeliveryHours = records.length ? Number((records.reduce((s, r) => s + r.deliveryHours, 0) / records.length).toFixed(1)) : 0;
+    return {
+      slaHours,
+      totalPackages: records.length,
+      breachedPackages,
+      breachRate: records.length ? Math.round(breachedPackages / records.length * 100) : 0,
+      avgDeliveryHours,
+      byDay: [...byDayMap.values()].sort((a, b) => a.date.localeCompare(b.date)),
+      byZone: [...byZoneMap.values()].map((z) => ({ ...z, breachRate: z.total ? Math.round(z.breached / z.total * 100) : 0 })),
+      topBreached: breachedRecords.slice(0, 10).map((r) => ({ trackingNumber: r.trackingNumber, zone: r.zone, deliveryHours: Number(r.deliveryHours.toFixed(1)), slaHours })),
     };
   }
 
@@ -250,13 +258,153 @@ export class ReportsService {
       const zoneName = p.toZoneId ? (zoneNames.get(p.toZoneId) ?? 'Unknown Zone') : (p.destCity ?? 'No Zone');
       if (!zoneMap[zoneId]) zoneMap[zoneId] = { zone: zoneName, revenue: 0, shipments: 0, delivered: 0 };
       zoneMap[zoneId]!.shipments++;
-      zoneMap[zoneId]!.revenue += Number(p.deliveryFee ?? 0);
-      if (p.status === 'DELIVERED') zoneMap[zoneId]!.delivered++;
+      if (p.status === 'DELIVERED') {
+        zoneMap[zoneId]!.delivered++;
+        zoneMap[zoneId]!.revenue += Number(p.deliveryFee ?? 0);
+      }
     }
 
-    return Object.values(zoneMap)
-      .map((z) => ({ ...z, successRate: z.shipments > 0 ? Math.round((z.delivered / z.shipments) * 100) : 0 }))
-      .sort((a, b) => b.revenue - a.revenue);
+    const byZone = Object.values(zoneMap).map((z) => ({
+      zone: z.zone,
+      revenue: z.revenue,
+      shipments: z.shipments,
+      deliveries: z.delivered,
+      avgFee: z.delivered ? z.revenue / z.delivered : 0,
+      successRate: z.shipments > 0 ? Math.round((z.delivered / z.shipments) * 100) : 0,
+    })).sort((a, b) => b.revenue - a.revenue);
+    return { total: byZone.reduce((sum, z) => sum + z.revenue, 0), byZone };
+  }
+
+  async getYearOnYear() {
+    const year = new Date().getFullYear();
+    const statsFor = async (targetYear: number) => {
+      const start = new Date(targetYear, 0, 1);
+      const end = new Date(targetYear + 1, 0, 1);
+      const [packages, payments, invoicePayments, delivered, total] = await Promise.all([
+        this.prisma.package.findMany({ where: { createdAt: { gte: start, lt: end } }, select: { createdAt: true, status: true } }),
+        this.prisma.payment.findMany({ where: { paymentDate: { gte: start, lt: end }, status: 'COMPLETED' }, select: { paymentDate: true, amount: true } }),
+        this.prisma.invoicePayment.findMany({ where: { recordedAt: { gte: start, lt: end } }, select: { recordedAt: true, amount: true } }),
+        this.prisma.package.count({ where: { statusHistory: { some: { status: 'DELIVERED', createdAt: { gte: start, lt: end } } } } }),
+        this.prisma.package.count({ where: { createdAt: { gte: start, lt: end } } }),
+      ]);
+      const monthStats = Array.from({ length: 12 }, (_, month) => {
+        const monthStart = new Date(targetYear, month, 1);
+        const monthEnd = new Date(targetYear, month + 1, 1);
+        const revenue = payments
+          .filter((payment) => payment.paymentDate >= monthStart && payment.paymentDate < monthEnd)
+          .reduce((sum, payment) => sum + Number(payment.amount), 0)
+          + invoicePayments
+            .filter((payment) => payment.recordedAt >= monthStart && payment.recordedAt < monthEnd)
+            .reduce((sum, payment) => sum + Number(payment.amount), 0);
+        return {
+          month: monthStart.toLocaleDateString('en-GB', { month: 'short' }),
+          revenue,
+          packages: packages.filter((pkg) => pkg.createdAt >= monthStart && pkg.createdAt < monthEnd).length,
+        };
+      });
+      return {
+        packages: packages.length,
+        revenue: payments.reduce((sum, payment) => sum + Number(payment.amount), 0)
+          + invoicePayments.reduce((sum, payment) => sum + Number(payment.amount), 0),
+        deliveries: delivered,
+        successRate: total ? Math.round((delivered / total) * 100) : 0,
+        monthStats,
+      };
+    };
+    const [thisYear, lastYear] = await Promise.all([statsFor(year), statsFor(year - 1)]);
+    const monthly = thisYear.monthStats.map((month, index) => ({
+      month: month.month,
+      thisYear: month.revenue,
+      lastYear: lastYear.monthStats[index]!.revenue,
+      thisYearPkgs: month.packages,
+      lastYearPkgs: lastYear.monthStats[index]!.packages,
+    }));
+    const quarterly = Array.from({ length: 4 }, (_, quarter) => {
+      const thisYearMonths = thisYear.monthStats.slice(quarter * 3, quarter * 3 + 3);
+      const lastYearMonths = lastYear.monthStats.slice(quarter * 3, quarter * 3 + 3);
+      return {
+        quarter: `Q${quarter + 1}`,
+        thisYearRev: thisYearMonths.reduce((sum, month) => sum + month.revenue, 0),
+        lastYearRev: lastYearMonths.reduce((sum, month) => sum + month.revenue, 0),
+        thisYearPkgs: thisYearMonths.reduce((sum, month) => sum + month.packages, 0),
+        lastYearPkgs: lastYearMonths.reduce((sum, month) => sum + month.packages, 0),
+      };
+    });
+    const { monthStats: _thisYearMonthStats, ...thisYearSummary } = thisYear;
+    const { monthStats: _lastYearMonthStats, ...lastYearSummary } = lastYear;
+    return { thisYear: thisYearSummary, lastYear: lastYearSummary, monthly, quarterly };
+  }
+
+  async getRoutePerformance(from?: string, to?: string) {
+    const dateRange = this.range(from, to);
+    const packages = await this.prisma.package.findMany({
+      where: dateRange ? { createdAt: dateRange } : undefined,
+      select: { toZoneId: true, destCity: true, status: true },
+    });
+    const zones = await this.prisma.zone.findMany({ select: { id: true, name: true } });
+    const names = new Map(zones.map((z) => [z.id, z.name]));
+    const grouped = new Map<string, { route: string; packages: number; delivered: number; unsuccessful: number; pending: number }>();
+    for (const pkg of packages) {
+      const key = pkg.toZoneId ?? `city:${pkg.destCity}`;
+      const route = pkg.toZoneId ? names.get(pkg.toZoneId) ?? 'Unknown route' : pkg.destCity || 'Unassigned route';
+      const row = grouped.get(key) ?? { route, packages: 0, delivered: 0, unsuccessful: 0, pending: 0 };
+      row.packages++;
+      if (pkg.status === 'DELIVERED') row.delivered++;
+      else if (['FAILED', 'DELIVERY_ATTEMPTED', 'RETURNED', 'CANCELLED'].includes(pkg.status)) row.unsuccessful++;
+      else row.pending++;
+      grouped.set(key, row);
+    }
+    return [...grouped.entries()].map(([routeId, r]) => ({ routeId, ...r, completionRate: r.packages ? Math.round(r.delivered / r.packages * 100) : 0 }));
+  }
+
+  async getDeliveryExceptions(from?: string, to?: string) {
+    const dateRange = this.range(from, to);
+    const where: any = { status: { in: ['DELIVERY_ATTEMPTED', 'FAILED'] } };
+    if (dateRange) where.updatedAt = dateRange;
+    return this.prisma.package.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      take: 500,
+      select: {
+        trackingNumber: true, orderReference: true, status: true, updatedAt: true, reattemptAt: true,
+        sender: { select: { name: true } }, recipient: { select: { name: true } },
+        statusHistory: { where: { status: { in: ['DELIVERY_ATTEMPTED', 'FAILED'] } }, orderBy: { createdAt: 'desc' }, take: 1, select: { note: true, failedReason: true, failureReasonCode: { select: { label: true } }, createdAt: true } },
+      },
+    });
+  }
+
+  async getInvoiceAging() {
+    const now = new Date();
+    const invoices = await this.prisma.invoice.findMany({
+      where: { status: { in: ['SENT', 'PARTIALLY_PAID', 'OVERDUE', 'DISPUTED'] }, dueDate: { lt: now } },
+      include: { customer: { select: { name: true } }, payments: { select: { amount: true } } },
+      orderBy: { dueDate: 'asc' },
+    });
+    return invoices.map((invoice) => {
+      const balance = Math.max(0, Number(invoice.totalAmount) - invoice.payments.reduce((sum, p) => sum + Number(p.amount), 0));
+      const daysOverdue = Math.floor((now.getTime() - invoice.dueDate.getTime()) / 86_400_000);
+      const bucket = daysOverdue <= 30 ? '1-30' : daysOverdue <= 60 ? '31-60' : daysOverdue <= 90 ? '61-90' : '90+';
+      return { invoiceNumber: invoice.invoiceNumber, customer: invoice.customer.name, dueDate: invoice.dueDate, daysOverdue, bucket, total: Number(invoice.totalAmount), balance, status: invoice.status };
+    });
+  }
+
+  async getCustomerServiceActivity(from?: string, to?: string) {
+    const dateRange = this.range(from, to);
+    const [interactions, escalations] = await Promise.all([
+      this.prisma.customerInteraction.findMany({ where: dateRange ? { createdAt: dateRange } : undefined, include: { customer: { select: { name: true } }, staff: { select: { firstName: true, lastName: true } }, package: { select: { trackingNumber: true } } }, orderBy: { createdAt: 'desc' }, take: 1000 }),
+      this.prisma.escalation.findMany({ where: dateRange ? { createdAt: dateRange } : undefined, include: { customer: { select: { name: true } }, package: { select: { trackingNumber: true } } }, orderBy: { createdAt: 'desc' }, take: 1000 }),
+    ]);
+    return { interactions, escalations };
+  }
+
+  async getMaintenanceHistory(from?: string, to?: string) {
+    const dateRange = this.range(from, to);
+    return this.prisma.maintenance.findMany({
+      where: dateRange ? { serviceDate: dateRange } : undefined,
+      include: { vehicle: { select: { plateNumber: true, make: true, model: true } } },
+      orderBy: { serviceDate: 'desc' },
+      take: 1000,
+    });
   }
 
   // Legacy endpoints kept for backward compat

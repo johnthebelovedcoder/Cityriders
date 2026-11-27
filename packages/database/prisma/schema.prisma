@@ -58,6 +58,13 @@ enum CustomerStatus {
   SUSPENDED
 }
 
+enum CustomerOrderStatus {
+  RECEIVING
+  RECONCILED
+  COMPLETED
+  CANCELLED
+}
+
 enum VehicleStatus {
   ACTIVE
   INACTIVE
@@ -120,6 +127,10 @@ enum PaymentStatus {
 enum ExpenseCategory {
   FUEL
   MAINTENANCE
+  TYRES
+  SERVICING
+  PARTS
+  TOLL_PARKING
   RIDER_COMPENSATION
   OFFICE
   MARKETING
@@ -179,6 +190,7 @@ model User {
   email       String     @unique
   password    String
   phone       String?
+  customerId  String?
   role        UserRole   @default(DISPATCHER)
   status      UserStatus @default(ACTIVE)
   lastLoginAt DateTime?
@@ -198,10 +210,21 @@ model User {
   manifestsCreated      DispatchManifest[] @relation("ManifestCreatedBy")
   invoicesCreated       Invoice[]          @relation("InvoiceCreatedBy")
   invoicePaymentsRecorded InvoicePayment[] @relation("InvoicePaymentRecordedBy")
+  invoiceProofsUploaded InvoicePaymentProof[]
   codRemittancesConfirmed CODRemittance[]  @relation("CODConfirmedBy")
   interactions            CustomerInteraction[] @relation("InteractionStaff")
   escalationsRaised       Escalation[]     @relation("EscalationRaisedBy")
   payrollPaid             PayrollRecord[]  @relation("PayrollPaidBy")
+  escalationEvents        EscalationEvent[]
+  customerServiceCoverage CustomerServiceCoverage[] @relation("CoverageStaff")
+  coverageAssignmentsMade CustomerServiceCoverage[] @relation("CoverageAssignedBy")
+  customerOrdersCreated CustomerOrder[] @relation("CustomerOrderCreatedBy")
+  customerOrdersCollected CustomerOrder[] @relation("CustomerOrderCollectedBy")
+  customerOrdersReceived CustomerOrder[] @relation("CustomerOrderOfficeReceivedBy")
+  deliveryCorrections DeliveryOutcomeCorrection[]
+  expensesApproved Expense[] @relation("ExpenseApprovedBy")
+  customerAccountAdjustmentsRecorded CustomerAccountAdjustment[] @relation("CustomerAccountAdjustmentRecordedBy")
+  portalCustomer Customer? @relation("CustomerPortalUsers", fields: [customerId], references: [id])
 
   @@map("users")
 }
@@ -228,6 +251,8 @@ model Rider {
   riderId      String?     @unique
   vehicleType  String?
   vehiclePlate String?
+  emergencyContact String?
+  dateJoined   DateTime @default(now())
   status          RiderStatus @default(ACTIVE)
   zoneId          String?
   latitude        Float?
@@ -244,6 +269,7 @@ model Rider {
   manifests   DispatchManifest[]
   codRemittances CODRemittance[]
   payrollRecords PayrollRecord[]
+  deliveryAttempts DeliveryAttempt[]
 
   @@map("riders")
 }
@@ -278,9 +304,11 @@ model Vehicle {
 model Customer {
   id           String         @id @default(cuid())
   name         String
+  contactPerson String?
   phone        String
   email        String?
   address      String?
+  billingAddress String?
   type         CustomerType   @default(INDIVIDUAL)
   creditLimit  Decimal?       @db.Decimal(12, 2)
   paymentTerms PaymentTerms   @default(PREPAY)
@@ -297,6 +325,10 @@ model Customer {
   escalations     Escalation[]
   pickupLocations CustomerPickupLocation[]
   pricingOverride CustomerPricingOverride?
+  serviceCoverage CustomerServiceCoverage[]
+  orders          CustomerOrder[]
+  portalUsers     User[] @relation("CustomerPortalUsers")
+  accountAdjustments CustomerAccountAdjustment[]
 
   @@map("customers")
 }
@@ -322,6 +354,7 @@ model Package {
   id                   String        @id @default(cuid())
   trackingNumber       String        @unique
   orderReference       String?
+  customerOrderId      String?
   description          String?
   weight               Float?
   dimensionsLength     Float?
@@ -369,6 +402,7 @@ model Package {
   receiptReconciledAt DateTime?
 
   statusHistory   PackageStatusEvent[]
+  deliveryAttempts DeliveryAttempt[]
   assignments     Assignment[]
   proofOfDelivery ProofOfDelivery?
   payments        Payment[]
@@ -378,12 +412,63 @@ model Package {
   codRemittance    CODRemittance?
   interactions     CustomerInteraction[]
   escalations      Escalation[]
+  customerOrder    CustomerOrder?      @relation(fields: [customerOrderId], references: [id])
+  outcomeCorrections DeliveryOutcomeCorrection[]
 
   @@index([trackingNumber])
   @@index([status])
   @@index([senderId])
   @@index([createdAt])
+  @@index([customerOrderId])
   @@map("packages")
+}
+
+model CustomerOrder {
+  id                  String              @id @default(cuid())
+  customerId          String
+  customerReference   String
+  expectedPackageCount Int?
+  receivedPackageCount Int                @default(0)
+  status              CustomerOrderStatus @default(RECEIVING)
+  discrepancyNote     String?
+  reconciledAt        DateTime?
+  pickupLocationId    String?
+  collectedAt         DateTime?
+  collectedById       String?
+  officeReceivedAt    DateTime?
+  officeReceivedById  String?
+  serviceDate         DateTime @default(now())
+  createdById         String
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  createdBy User @relation("CustomerOrderCreatedBy", fields: [createdById], references: [id])
+  pickupLocation CustomerPickupLocation? @relation(fields: [pickupLocationId], references: [id], onDelete: SetNull)
+  collectedBy User? @relation("CustomerOrderCollectedBy", fields: [collectedById], references: [id])
+  officeReceivedBy User? @relation("CustomerOrderOfficeReceivedBy", fields: [officeReceivedById], references: [id])
+  packages Package[]
+
+  @@unique([customerId, customerReference])
+  @@index([status])
+  @@index([createdAt])
+  @@map("customer_orders")
+}
+
+model DeliveryOutcomeCorrection {
+  id              String        @id @default(cuid())
+  packageId       String
+  correctedById   String
+  previousStatus  PackageStatus
+  correctedStatus PackageStatus
+  reason          String
+  createdAt       DateTime      @default(now())
+
+  package     Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  correctedBy User    @relation(fields: [correctedById], references: [id])
+
+  @@index([packageId, createdAt])
+  @@map("delivery_outcome_corrections")
 }
 
 model PackageStatusEvent {
@@ -407,6 +492,25 @@ model PackageStatusEvent {
   @@map("package_status_events")
 }
 
+model DeliveryAttempt {
+  id          String              @id @default(cuid())
+  packageId   String
+  riderId     String
+  outcome     PackageStatus
+  reason      FailedDeliveryReason?
+  failureReasonCodeId String?
+  note        String?
+  attemptedAt DateTime            @default(now())
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  rider   Rider   @relation(fields: [riderId], references: [id])
+  failureReasonCode FailureReasonCode? @relation(fields: [failureReasonCodeId], references: [id])
+
+  @@index([packageId, attemptedAt])
+  @@index([riderId, attemptedAt])
+  @@map("delivery_attempts")
+}
+
 model FailureReasonCode {
   id       String  @id @default(cuid())
   code     String  @unique
@@ -414,6 +518,7 @@ model FailureReasonCode {
   isActive Boolean @default(true)
 
   statusEvents PackageStatusEvent[]
+  deliveryAttempts DeliveryAttempt[]
 
   @@map("failure_reason_codes")
 }
@@ -423,6 +528,7 @@ model DispatchManifest {
   riderId              String
   createdById          String
   dispatchedAt         DateTime @default(now())
+  serviceDate          DateTime @default(now())
   pdfUrl               String?
   expectedPackageCount Int?
   actualPackageCount   Int?
@@ -494,6 +600,10 @@ model Payment {
   customerId  String?
   recordedById String
   paymentDate DateTime
+  paymentType String        @default("DeliveryFee")
+  receiptData Bytes?
+  receiptMimeType String?
+  receiptFileName String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -532,11 +642,18 @@ model Expense {
   payee         String?
   paymentMethod PaymentMethod?
   attachmentUrl String?
+  attachmentData Bytes?
+  attachmentMimeType String?
+  attachmentFileName String?
   packageId    String?
   riderId      String?
   vehicleId    String?
   recordedById String
   expenseDate  DateTime
+  approvalStatus String @default("Approved")
+  approvedById String?
+  approvedAt DateTime?
+  approvalNote String?
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
@@ -544,10 +661,37 @@ model Expense {
   rider       Rider?   @relation(fields: [riderId], references: [id])
   vehicle     Vehicle? @relation(fields: [vehicleId], references: [id])
   recordedBy  User     @relation(fields: [recordedById], references: [id])
+  approvedBy User? @relation("ExpenseApprovedBy", fields: [approvedById], references: [id])
 
   @@index([expenseDate])
   @@index([category])
   @@map("expenses")
+}
+
+model ExpenseCategoryOption {
+  code      String          @id
+  label     String
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("expense_category_options")
+}
+
+model CustomerAccountAdjustment {
+  id           String   @id @default(cuid())
+  customerId   String
+  amount       Decimal  @db.Decimal(12, 2)
+  reason       String
+  effectiveAt  DateTime @default(now())
+  recordedById String
+  createdAt    DateTime @default(now())
+
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  recordedBy User     @relation("CustomerAccountAdjustmentRecordedBy", fields: [recordedById], references: [id])
+
+  @@index([customerId, effectiveAt])
+  @@map("customer_account_adjustments")
 }
 
 // ─── System Settings ─────────────────────────────────────────────────────────
@@ -561,10 +705,19 @@ model SystemSettings {
   currency                 String   @default("NGN")
   flatDeliveryFee          Decimal  @default(1500) @db.Decimal(12, 2)
   weightSurcharge          Decimal  @default(200) @db.Decimal(12, 2)
+  vatRate                  Decimal  @default(0) @db.Decimal(5, 4)
   expenseApprovalThreshold Decimal  @default(20000) @db.Decimal(12, 2)
   lowCreditThreshold       Decimal  @default(5000) @db.Decimal(12, 2)
   maxActiveAssignments     Int      @default(5)
+  maxPackagesPerRider      Int      @default(20)
+  maintenanceReviewDays   Int      @default(30)
+  bankName                String?
+  accountNumber           String?
+  accountName             String?
+  invoicePaymentTermsDays Int      @default(30)
+  invoiceFooterNote       String?
   smsEnabled               Boolean  @default(false)
+  notificationRules        Json     @default("{}")
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
@@ -577,6 +730,9 @@ model Zone {
   id         String   @id @default(cuid())
   settingsId String   @default("default")
   name       String
+  description String?
+  coverageAreas String[] @default([])
+  isActive Boolean @default(true)
   basePrice  Decimal  @db.Decimal(12, 2)
   createdAt  DateTime @default(now())
 
@@ -652,6 +808,7 @@ model Invoice {
   createdBy User             @relation("InvoiceCreatedBy", fields: [createdById], references: [id])
   lineItems InvoiceLineItem[]
   payments  InvoicePayment[]
+  paymentProofs InvoicePaymentProof[]
 
   @@index([customerId])
   @@index([status])
@@ -693,6 +850,22 @@ model InvoicePayment {
 
   @@index([invoiceId])
   @@map("invoice_payments")
+}
+
+model InvoicePaymentProof {
+  id           String   @id
+  invoiceId    String
+  fileName     String
+  mimeType     String
+  fileData     Bytes
+  uploadedById String
+  uploadedAt   DateTime @default(now())
+
+  invoice    Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation(fields: [uploadedById], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_payment_proofs")
 }
 
 // ─── COD Remittance ──────────────────────────────────────────────────────────
@@ -755,12 +928,28 @@ model Escalation {
 
   package    Package?  @relation(fields: [packageId], references: [id])
   customer   Customer? @relation(fields: [customerId], references: [id])
+  events     EscalationEvent[]
   raisedBy   User      @relation("EscalationRaisedBy", fields: [raisedById], references: [id])
 
   @@index([status])
   @@index([packageId])
   @@index([customerId])
   @@map("escalations")
+}
+
+model EscalationEvent {
+  id           String           @id @default(cuid())
+  escalationId String
+  changedById  String
+  status       EscalationStatus
+  resolution   String?
+  createdAt    DateTime         @default(now())
+
+  escalation Escalation @relation(fields: [escalationId], references: [id], onDelete: Cascade)
+  changedBy  User       @relation(fields: [changedById], references: [id])
+
+  @@index([escalationId, createdAt])
+  @@map("escalation_events")
 }
 
 // ─── Payroll ──────────────────────────────────────────────────────────────────
@@ -807,6 +996,8 @@ model Maintenance {
   id                 String            @id @default(cuid())
   vehicleId          String
   type               String
+  component          String?
+  replacementDate    DateTime?
   description        String?
   cost               Decimal?          @db.Decimal(12, 2)
   mileageAtService   Float?
@@ -828,6 +1019,22 @@ model Maintenance {
 
 // ─── Customer Pickup Locations ────────────────────────────────────────────────
 
+model CustomerServiceCoverage {
+  id           String   @id @default(cuid())
+  staffUserId  String
+  customerId   String
+  assignedById String
+  createdAt    DateTime @default(now())
+
+  staffUser  User     @relation("CoverageStaff", fields: [staffUserId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedBy User     @relation("CoverageAssignedBy", fields: [assignedById], references: [id])
+
+  @@unique([staffUserId, customerId])
+  @@index([customerId])
+  @@map("customer_service_coverage")
+}
+
 model CustomerPickupLocation {
   id           String   @id @default(cuid())
   customerId   String
@@ -837,14 +1044,68 @@ model CustomerPickupLocation {
   state        String?
   contactName  String?
   contactPhone String?
+  instructions String?
   isDefault    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders CustomerOrder[]
 
   @@index([customerId])
   @@map("customer_pickup_locations")
+}
+
+model Employee {
+  id                 String   @id
+  name               String
+  email              String   @unique
+  phone              String?
+  role               String
+  department         String
+  employmentType     String
+  basicSalary        Decimal  @default(0) @db.Decimal(12, 2)
+  housingAllowance   Decimal  @default(0) @db.Decimal(12, 2)
+  transportAllowance Decimal  @default(0) @db.Decimal(12, 2)
+  ratePerDelivery    Decimal  @default(0) @db.Decimal(12, 2)
+  bankName           String?
+  accountNumber      String?
+  accountHolderName  String?
+  pensionPin         String?
+  additions          Json     @default("[]")
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  payrollRuns        CompanyPayrollRun[]
+
+  @@map("employees")
+}
+
+model CompanyPayrollRun {
+  id                 String   @id
+  employeeId         String
+  period             String
+  deliveries         Int      @default(0)
+  basicPay           Decimal  @db.Decimal(12, 2)
+  housingAllowance   Decimal  @db.Decimal(12, 2)
+  transportAllowance Decimal  @db.Decimal(12, 2)
+  bonus              Decimal  @default(0) @db.Decimal(12, 2)
+  additions          Json     @default("[]")
+  additionsTotal     Decimal  @default(0) @db.Decimal(12, 2)
+  grossPay           Decimal  @db.Decimal(12, 2)
+  taxPAYE            Decimal  @db.Decimal(12, 2)
+  pension            Decimal  @db.Decimal(12, 2)
+  nhf                Decimal  @db.Decimal(12, 2)
+  netPay             Decimal  @db.Decimal(12, 2)
+  status             String   @default("PENDING")
+  paidAt             DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  employee           Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, period])
+  @@index([period])
+  @@map("company_payroll_runs")
 }
 
 // ─── Customer Pricing Overrides ───────────────────────────────────────────────

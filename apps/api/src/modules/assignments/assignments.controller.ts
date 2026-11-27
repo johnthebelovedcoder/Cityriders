@@ -2,10 +2,14 @@ import { Controller, Post, Get, Param, Body, Query, UseGuards, Request } from '@
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AssignmentsService } from './assignments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '@cityrider/types';
 
 @ApiTags('Assignments')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER, UserRole.DISPATCHER, UserRole.CEO_EXECUTIVE)
 @Controller('assignments')
 export class AssignmentsController {
   constructor(private readonly assignmentsService: AssignmentsService) {}
@@ -16,6 +20,7 @@ export class AssignmentsController {
   }
 
   @Post()
+  @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER, UserRole.DISPATCHER)
   assign(@Body() dto: { packageId: string; riderId: string; reason?: string }, @Request() req: any) {
     return this.assignmentsService.assign(dto.packageId, dto.riderId, req.user.id, dto.reason);
   }

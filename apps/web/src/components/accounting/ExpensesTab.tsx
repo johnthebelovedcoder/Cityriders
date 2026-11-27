@@ -1,121 +1,19 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, TrendDown01, Clock } from '@untitled-ui/icons-react';
+import { useQuery } from '@tanstack/react-query';
+import { Plus, TrendDown01, Clock, Eye } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
-import { Drawer } from '@/components/ui/Drawer';
+import { ExpenseCreateDrawer } from '@/components/expenses/ExpenseCreateDrawer';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { SelectField } from '@/components/ui/SelectField';
+import { ExpenseDetailDrawer } from '@/components/expenses/ExpenseDetailDrawer';
 
 const fmt = (n: number | string) => `₦${Number(n).toLocaleString()}`;
 
-const EXPENSE_CATEGORIES = ['FUEL', 'MAINTENANCE', 'RIDER_COMPENSATION', 'OFFICE', 'MARKETING', 'OTHER'];
-
-function AddExpenseModal({ onClose }: { onClose: () => void }) {
-  const qc = useQueryClient();
-  const today = new Date().toISOString().split('T')[0];
-  const [form, setForm] = useState({
-    category: 'FUEL', amount: '', description: '', payee: '',
-    expenseDate: today, riderId: '', vehicleId: '',
-  });
-
-  const { data: riders } = useQuery({
-    queryKey: ['riders-active'],
-    queryFn: () => api.get('/riders/active').then(r => r.data),
-  });
-  const { data: vehicles } = useQuery({
-    queryKey: ['vehicles'],
-    queryFn: () => api.get('/vehicles').then(r => r.data?.data ?? r.data ?? []).catch(() => []),
-  });
-
-  const mut = useMutation({
-    mutationFn: () => api.post('/expenses', {
-      ...form,
-      amount: Number(form.amount),
-      riderId: form.riderId || undefined,
-      vehicleId: form.vehicleId || undefined,
-    }).then(r => r.data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['expenses'] }); onClose(); },
-  });
-
-  const inp = 'w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring';
-  const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
-
-  return (
-    <Drawer
-      title="Add Expense"
-      onClose={onClose}
-      footer={
-        <div className="flex gap-3">
-          <button type="button" onClick={onClose} className="flex-1 rounded-lg border px-4 py-2 text-sm">Cancel</button>
-          <button
-            type="submit"
-            form="add-expense-form"
-            disabled={mut.isPending}
-            className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-          >
-            {mut.isPending ? 'Saving…' : 'Add Expense'}
-          </button>
-        </div>
-      }
-    >
-      <form id="add-expense-form" onSubmit={e => { e.preventDefault(); mut.mutate(); }} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Category</label>
-            <select className={inp} value={form.category} onChange={f('category')}>
-              {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Amount (₦)</label>
-            <input className={inp} type="number" min="1" required value={form.amount} onChange={f('amount')} placeholder="0" />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
-          <input className={inp} required value={form.description} onChange={f('description')} placeholder="e.g. Fuel for dispatch route" />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-sm font-medium mb-1">Payee <span className="text-muted-foreground font-normal">(optional)</span></label>
-            <input className={inp} value={form.payee} onChange={f('payee')} placeholder="Vendor / person paid" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Date</label>
-            <input className={inp} type="date" required value={form.expenseDate} onChange={f('expenseDate')} />
-          </div>
-        </div>
-        {(form.category === 'FUEL' || form.category === 'MAINTENANCE' || form.category === 'RIDER_COMPENSATION') && (
-          <div>
-            <label className="block text-sm font-medium mb-1">Rider <span className="text-muted-foreground font-normal">(optional)</span></label>
-            <select className={inp} value={form.riderId} onChange={f('riderId')}>
-              <option value="">— None —</option>
-              {(riders ?? []).map((r: any) => (
-                <option key={r.id} value={r.id}>{r.user.firstName} {r.user.lastName}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {(form.category === 'FUEL' || form.category === 'MAINTENANCE') && (vehicles ?? []).length > 0 && (
-          <div>
-            <label className="block text-sm font-medium mb-1">Vehicle <span className="text-muted-foreground font-normal">(optional)</span></label>
-            <select className={inp} value={form.vehicleId} onChange={f('vehicleId')}>
-              <option value="">— None —</option>
-              {(vehicles ?? []).map((v: any) => (
-                <option key={v.id} value={v.id}>{v.plateNumber ?? v.id}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {mut.error && <p className="text-xs text-destructive">{(mut.error as any).response?.data?.message ?? 'Error saving expense'}</p>}
-      </form>
-    </Drawer>
-  );
-}
-
 export function ExpensesTab() {
   const [showAdd, setShowAdd] = useState(false);
+  const [expenseTarget, setExpenseTarget] = useState<any | null>(null);
   const [riderId, setRiderId] = useState('');
   const [category, setCategory] = useState('');
 
@@ -125,6 +23,7 @@ export function ExpensesTab() {
   });
 
   const { data: riders } = useQuery({ queryKey: ['riders-active'], queryFn: () => api.get('/riders/active').then(r => r.data) });
+  const { data: categories = [] } = useQuery({ queryKey: ['expense-categories'], queryFn: () => api.get('/expenses/categories').then(r => r.data as Array<{ code: string; label: string }>) });
 
   const expenses = data?.data ?? [];
   const summary = data?.summary;
@@ -187,18 +86,8 @@ export function ExpensesTab() {
       <div className="rounded-xl border bg-card overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b">
           <div className="flex flex-wrap gap-2">
-            <select value={category} onChange={e => setCategory(e.target.value)}
-              className="h-8 rounded-md border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring">
-              <option value="">All Categories</option>
-              {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
-            </select>
-            <select value={riderId} onChange={e => setRiderId(e.target.value)}
-              className="h-8 rounded-md border bg-background px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring">
-              <option value="">All Riders</option>
-              {(riders ?? []).map((r: any) => (
-                <option key={r.id} value={r.id}>{r.user.firstName} {r.user.lastName}</option>
-              ))}
-            </select>
+            <SelectField className="min-w-36" value={category} onChange={setCategory} aria-label="Filter expenses by category" options={[{ value: '', label: 'All Categories' }, ...categories.map((item) => ({ value: item.code, label: item.label }))]} />
+            <SelectField className="min-w-36" value={riderId} onChange={setRiderId} aria-label="Filter expenses by rider" options={[{ value: '', label: 'All Riders' }, ...(riders ?? []).map((r: any) => ({ value: r.id, label: `${r.user.firstName} ${r.user.lastName}` }))]} />
           </div>
           <button onClick={() => setShowAdd(true)}
             className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
@@ -211,14 +100,14 @@ export function ExpensesTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/40 text-left">
-                {['Category', 'Amount', 'Description', 'Rider', 'Vehicle', 'Payee', 'Date'].map(h => (
+                {['Category', 'Amount', 'Description', 'Rider', 'Vehicle', 'Payee', 'Date and time', 'Receipt'].map(h => (
                   <th key={h} className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {expenses.length === 0 ? (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No expenses found</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No expenses found</td></tr>
               ) : expenses.map((e: any) => (
                 <tr key={e.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="px-4 py-3 font-medium">{e.category.replace('_', ' ')}</td>
@@ -229,7 +118,8 @@ export function ExpensesTab() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{e.vehicle?.plateNumber ?? '—'}</td>
                   <td className="px-4 py-3 text-muted-foreground">{e.payee ?? '—'}</td>
-                  <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(e.expenseDate).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(e.expenseDate).toLocaleString()}</td>
+                  <td className="px-4 py-3"><button onClick={() => setExpenseTarget(e)} title="View expense details" aria-label={`View expense details for ${e.description}`} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"><Eye className="h-4 w-4" /></button></td>
                 </tr>
               ))}
             </tbody>
@@ -237,7 +127,8 @@ export function ExpensesTab() {
         )}
       </div>
 
-      {showAdd && <AddExpenseModal onClose={() => setShowAdd(false)} />}
+      {showAdd && <ExpenseCreateDrawer onClose={() => setShowAdd(false)} />}
+      {expenseTarget && <ExpenseDetailDrawer expense={expenseTarget} onClose={() => setExpenseTarget(null)} />}
     </div>
   );
 }

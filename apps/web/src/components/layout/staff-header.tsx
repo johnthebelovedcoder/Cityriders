@@ -47,12 +47,12 @@ function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
 
   const { data: stats } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: () => api.get('/dashboard/stats').then((r) => r.data),
-    staleTime: 30_000,
+    queryKey: ['dashboard-activity'],
+    queryFn: () => api.get('/dashboard/activity').then((r) => r.data),
+    staleTime: 60_000,
   });
 
-  const activities: any[] = stats?.recentActivity ?? [];
+  const activities: any[] = stats ?? [];
   const unread = activities.filter((a) => !read.has(a.id)).length;
 
   useEffect(() => {

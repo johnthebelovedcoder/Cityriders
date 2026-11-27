@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -113,8 +113,8 @@ function OverviewTab({ data }: { data: any }) {
               <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v) => `₦${(v / 1000).toFixed(0)}k`} width={48} />
               <Tooltip content={<ChartTooltip money />} cursor={{ fill: 'hsl(var(--muted))', opacity: 0.5 }} />
               <Legend iconSize={8} iconType="circle" wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />
-              <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expenses" name="Expenses" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="revenue" name="Revenue" fill="#FFB217" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expenses" name="Expenses" fill="#AE1805" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -197,7 +197,7 @@ function IncomeTab({ data }: { data: any[] }) {
           <tbody>
             {data.map((r: any) => (
               <tr key={r.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(r.date).toLocaleDateString()}</td>
+                <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(r.date).toLocaleString()}</td>
                 <td className="px-4 py-3 font-medium">{r.source}</td>
                 <td className="px-4 py-3 text-muted-foreground">{r.category}</td>
                 <td className="px-4 py-3 tabular-nums font-semibold">{fmt(r.amount)}</td>

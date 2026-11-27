@@ -3,26 +3,27 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Trash01, Users01 } from '@untitled-ui/icons-react';
+import { Plus, Users01 } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
+import { SelectField } from '@/components/ui/SelectField';
 
 export function ZonesSettings() {
   const qc = useQueryClient();
-  const [newZone, setNewZone] = useState({ name: '', basePrice: '' });
+  const [newZone, setNewZone] = useState({ name: '', basePrice: '', description: '', coverageAreas: '' });
 
   const { data: settings, isLoading } = useQuery({ queryKey: ['settings'], queryFn: () => api.get('/settings').then((r) => r.data) });
   const { data: riders } = useQuery({ queryKey: ['riders-all'], queryFn: () => api.get('/riders').then((r) => r.data) });
 
   const addZone = useMutation({
-    mutationFn: () => api.post('/settings/zones', { name: newZone.name, basePrice: parseFloat(newZone.basePrice) }),
-    onSuccess: () => { toast.success('Zone added'); qc.invalidateQueries({ queryKey: ['settings'] }); setNewZone({ name: '', basePrice: '' }); },
+    mutationFn: () => api.post('/settings/zones', { name: newZone.name, basePrice: parseFloat(newZone.basePrice), description: newZone.description || undefined, coverageAreas: newZone.coverageAreas.split(',').map((x) => x.trim()).filter(Boolean) }),
+    onSuccess: () => { toast.success('Zone added'); qc.invalidateQueries({ queryKey: ['settings'] }); setNewZone({ name: '', basePrice: '', description: '', coverageAreas: '' }); },
     onError: () => toast.error('Failed to add zone'),
   });
 
-  const deleteZone = useMutation({
-    mutationFn: (id: string) => api.delete(`/settings/zones/${id}`),
-    onSuccess: () => { toast.success('Zone removed'); qc.invalidateQueries({ queryKey: ['settings'] }); },
-    onError: () => toast.error('Failed to remove zone'),
+  const toggleZone = useMutation({
+    mutationFn: (zone: any) => api.patch(`/settings/zones/${zone.id}`, { isActive: !zone.isActive }),
+    onSuccess: () => { toast.success('Zone status updated'); qc.invalidateQueries({ queryKey: ['settings'] }); },
+    onError: () => toast.error('Could not update zone'),
   });
 
   const assignZone = useMutation({
@@ -51,11 +52,12 @@ export function ZonesSettings() {
               <div className="flex-1">
                 <p className="font-medium">{z.name}</p>
                 <p className="text-xs text-muted-foreground">Base price: ₦{z.basePrice.toLocaleString()}</p>
+                {z.description && <p className="text-xs text-muted-foreground">{z.description}</p>}
+                {(z.coverageAreas ?? []).length > 0 && <p className="text-xs text-muted-foreground">Areas: {z.coverageAreas.join(', ')}</p>}
+                <p className={`text-xs font-medium ${z.isActive === false ? 'text-red-600' : 'text-green-600'}`}>{z.isActive === false ? 'Inactive' : 'Active'}</p>
               </div>
-              <button onClick={() => deleteZone.mutate(z.id)} disabled={deleteZone.isPending}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-50">
-                <Trash01 className="h-3.5 w-3.5" />
-              </button>
+              <button onClick={() => toggleZone.mutate(z)} disabled={toggleZone.isPending}
+                className="rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-muted disabled:opacity-50">{z.isActive === false ? 'Reactivate' : 'Deactivate'}</button>
             </div>
             {z.riders?.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1 border-t pt-2">
@@ -76,6 +78,8 @@ export function ZonesSettings() {
               className="flex h-10 w-full rounded-lg border border-input bg-background px-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             <input placeholder="Base price (NGN)" type="number" value={newZone.basePrice} onChange={(e) => setNewZone((z) => ({ ...z, basePrice: e.target.value }))}
               className="flex h-10 w-full rounded-lg border border-input bg-background px-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <input placeholder="Description" value={newZone.description} onChange={(e) => setNewZone((z) => ({ ...z, description: e.target.value }))} className="col-span-2 flex h-10 w-full rounded-lg border border-input bg-background px-4 text-sm" />
+            <input placeholder="Coverage areas (comma separated)" value={newZone.coverageAreas} onChange={(e) => setNewZone((z) => ({ ...z, coverageAreas: e.target.value }))} className="col-span-2 flex h-10 w-full rounded-lg border border-input bg-background px-4 text-sm" />
           </div>
           <button disabled={!newZone.name || !newZone.basePrice || addZone.isPending} onClick={() => addZone.mutate()}
             className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
@@ -97,14 +101,7 @@ export function ZonesSettings() {
                   <p className="text-sm font-medium">{r.user.firstName} {r.user.lastName}</p>
                   <p className="text-xs text-muted-foreground capitalize">{r.vehicleType ?? 'Rider'}</p>
                 </div>
-                <select
-                  value={r.zoneId ?? ''}
-                  onChange={(e) => assignZone.mutate({ riderId: r.id, zoneId: e.target.value || null })}
-                  className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="">No zone</option>
-                  {zones.map((z: any) => <option key={z.id} value={z.id}>{z.name}</option>)}
-                </select>
+                <SelectField value={r.zoneId ?? ''} onChange={(zoneId) => assignZone.mutate({ riderId: r.id, zoneId: zoneId || null })} options={[{ value: '', label: 'No zone' }, ...zones.map((zone: any) => ({ value: zone.id, label: zone.name }))]} aria-label={`Zone for ${r.user.firstName} ${r.user.lastName}`} className="w-40" buttonClassName="h-8 rounded-md px-2 text-xs" />
               </div>
             ))}
           </div>

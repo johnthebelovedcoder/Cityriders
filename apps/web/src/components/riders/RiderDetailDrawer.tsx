@@ -152,7 +152,7 @@ export function RiderDetailDrawer({ riderId, onClose }: Props) {
             </div>
             {rider.createdAt && (
               <p className="text-xs text-muted-foreground">
-                Member since {new Date(rider.createdAt).toLocaleDateString('en-NG', { year: 'numeric', month: 'long', day: 'numeric' })}
+                Member since {new Date(rider.createdAt).toLocaleString('en-NG', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             )}
           </div>
@@ -191,7 +191,7 @@ export function RiderDetailDrawer({ riderId, onClose }: Props) {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">
-                          {d.assignedAt ? new Date(d.assignedAt).toLocaleDateString() : '—'}
+                          {d.assignedAt ? new Date(d.assignedAt).toLocaleString() : '—'}
                         </td>
                       </tr>
                     ))}

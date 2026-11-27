@@ -2,10 +2,14 @@ import { Controller, Get, Patch, Post, Delete, Param, Body, UseGuards, HttpCode,
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SettingsService } from './settings.service';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '@cityrider/types';
 
 @ApiTags('Settings')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER)
 @Controller('settings')
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
@@ -20,19 +24,24 @@ export class SettingsController {
 
   @Post('zones')
   @ApiOperation({ summary: 'Add a delivery zone' })
-  addZone(@Body() body: { name: string; basePrice: number }) {
-    return this.settingsService.addZone(body.name, body.basePrice);
+  addZone(@Body() body: { name: string; basePrice: number; description?: string; coverageAreas?: string[] }) {
+    return this.settingsService.addZone(body);
   }
 
   @Patch('zones/:id')
   @ApiOperation({ summary: 'Update a delivery zone' })
-  updateZone(@Param('id') id: string, @Body() body: { name?: string; basePrice?: number }) {
+  updateZone(@Param('id') id: string, @Body() body: { name?: string; basePrice?: number; description?: string; coverageAreas?: string[]; isActive?: boolean }) {
     return this.settingsService.updateZone(id, body);
   }
 
   @Delete('zones/:id')
   @ApiOperation({ summary: 'Remove a delivery zone' })
   deleteZone(@Param('id') id: string) { return this.settingsService.deleteZone(id); }
+
+  @Get('expense-categories') getExpenseCategories() { return this.settingsService.getExpenseCategories(); }
+  @Patch('expense-categories/:code') updateExpenseCategory(@Param('code') code: string, @Body() body: { label?: string; isActive?: boolean }) {
+    return this.settingsService.updateExpenseCategory(code, body);
+  }
 
   @Get('failure-reason-codes')
   @ApiOperation({ summary: 'List all failure reason codes' })

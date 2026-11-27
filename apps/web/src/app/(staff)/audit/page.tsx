@@ -6,6 +6,7 @@ import { DownloadCloud01, FileSearch01, RefreshCw05, FilePlus02, Calendar } from
 import { api } from '@/lib/api';
 import { PeriodFilter, usePeriodFilter } from '@/components/ui/PeriodFilter';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { SelectField } from '@/components/ui/SelectField';
 
 const ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'ASSIGN', 'REASSIGN', 'STATUS_CHANGE', 'LOGIN', 'LOGOUT'];
 
@@ -103,14 +104,7 @@ export default function AuditPage() {
           placeholder="Entity type (Package, User...)"
           className="h-10 min-w-40 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
-        <select
-          value={action}
-          onChange={(e) => { setAction(e.target.value); setPage(1); }}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm"
-        >
-          <option value="">All Actions</option>
-          {ACTIONS.map((a) => <option key={a} value={a}>{a.replace('_', ' ')}</option>)}
-        </select>
+        <SelectField className="min-w-36" value={action} onChange={(value) => { setAction(value); setPage(1); }} aria-label="Filter audit action" options={[{ value: '', label: 'All Actions' }, ...ACTIONS.map((item) => ({ value: item, label: item.replaceAll('_', ' ') }))]} />
         <input
           value={userFilter}
           onChange={(e) => { setUserFilter(e.target.value); setPage(1); }}

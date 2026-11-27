@@ -128,6 +128,7 @@ exports.Prisma.UserScalarFieldEnum = {
   email: 'email',
   password: 'password',
   phone: 'phone',
+  customerId: 'customerId',
   role: 'role',
   status: 'status',
   lastLoginAt: 'lastLoginAt',
@@ -151,6 +152,8 @@ exports.Prisma.RiderScalarFieldEnum = {
   riderId: 'riderId',
   vehicleType: 'vehicleType',
   vehiclePlate: 'vehiclePlate',
+  emergencyContact: 'emergencyContact',
+  dateJoined: 'dateJoined',
   status: 'status',
   zoneId: 'zoneId',
   latitude: 'latitude',
@@ -180,9 +183,11 @@ exports.Prisma.VehicleScalarFieldEnum = {
 exports.Prisma.CustomerScalarFieldEnum = {
   id: 'id',
   name: 'name',
+  contactPerson: 'contactPerson',
   phone: 'phone',
   email: 'email',
   address: 'address',
+  billingAddress: 'billingAddress',
   type: 'type',
   creditLimit: 'creditLimit',
   paymentTerms: 'paymentTerms',
@@ -208,6 +213,7 @@ exports.Prisma.PackageScalarFieldEnum = {
   id: 'id',
   trackingNumber: 'trackingNumber',
   orderReference: 'orderReference',
+  customerOrderId: 'customerOrderId',
   description: 'description',
   weight: 'weight',
   dimensionsLength: 'dimensionsLength',
@@ -246,6 +252,36 @@ exports.Prisma.PackageScalarFieldEnum = {
   receiptReconciledAt: 'receiptReconciledAt'
 };
 
+exports.Prisma.CustomerOrderScalarFieldEnum = {
+  id: 'id',
+  customerId: 'customerId',
+  customerReference: 'customerReference',
+  expectedPackageCount: 'expectedPackageCount',
+  receivedPackageCount: 'receivedPackageCount',
+  status: 'status',
+  discrepancyNote: 'discrepancyNote',
+  reconciledAt: 'reconciledAt',
+  pickupLocationId: 'pickupLocationId',
+  collectedAt: 'collectedAt',
+  collectedById: 'collectedById',
+  officeReceivedAt: 'officeReceivedAt',
+  officeReceivedById: 'officeReceivedById',
+  serviceDate: 'serviceDate',
+  createdById: 'createdById',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.DeliveryOutcomeCorrectionScalarFieldEnum = {
+  id: 'id',
+  packageId: 'packageId',
+  correctedById: 'correctedById',
+  previousStatus: 'previousStatus',
+  correctedStatus: 'correctedStatus',
+  reason: 'reason',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.PackageStatusEventScalarFieldEnum = {
   id: 'id',
   packageId: 'packageId',
@@ -257,6 +293,17 @@ exports.Prisma.PackageStatusEventScalarFieldEnum = {
   isCustomerVisible: 'isCustomerVisible',
   performedById: 'performedById',
   createdAt: 'createdAt'
+};
+
+exports.Prisma.DeliveryAttemptScalarFieldEnum = {
+  id: 'id',
+  packageId: 'packageId',
+  riderId: 'riderId',
+  outcome: 'outcome',
+  reason: 'reason',
+  failureReasonCodeId: 'failureReasonCodeId',
+  note: 'note',
+  attemptedAt: 'attemptedAt'
 };
 
 exports.Prisma.FailureReasonCodeScalarFieldEnum = {
@@ -271,6 +318,7 @@ exports.Prisma.DispatchManifestScalarFieldEnum = {
   riderId: 'riderId',
   createdById: 'createdById',
   dispatchedAt: 'dispatchedAt',
+  serviceDate: 'serviceDate',
   pdfUrl: 'pdfUrl',
   expectedPackageCount: 'expectedPackageCount',
   actualPackageCount: 'actualPackageCount',
@@ -342,8 +390,30 @@ exports.Prisma.ExpenseScalarFieldEnum = {
   vehicleId: 'vehicleId',
   recordedById: 'recordedById',
   expenseDate: 'expenseDate',
+  approvalStatus: 'approvalStatus',
+  approvedById: 'approvedById',
+  approvedAt: 'approvedAt',
+  approvalNote: 'approvalNote',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ExpenseCategoryOptionScalarFieldEnum = {
+  code: 'code',
+  label: 'label',
+  isActive: 'isActive',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CustomerAccountAdjustmentScalarFieldEnum = {
+  id: 'id',
+  customerId: 'customerId',
+  amount: 'amount',
+  reason: 'reason',
+  effectiveAt: 'effectiveAt',
+  recordedById: 'recordedById',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.SystemSettingsScalarFieldEnum = {
@@ -355,9 +425,17 @@ exports.Prisma.SystemSettingsScalarFieldEnum = {
   currency: 'currency',
   flatDeliveryFee: 'flatDeliveryFee',
   weightSurcharge: 'weightSurcharge',
+  vatRate: 'vatRate',
   expenseApprovalThreshold: 'expenseApprovalThreshold',
   lowCreditThreshold: 'lowCreditThreshold',
   maxActiveAssignments: 'maxActiveAssignments',
+  maxPackagesPerRider: 'maxPackagesPerRider',
+  maintenanceReviewDays: 'maintenanceReviewDays',
+  bankName: 'bankName',
+  accountNumber: 'accountNumber',
+  accountName: 'accountName',
+  invoicePaymentTermsDays: 'invoicePaymentTermsDays',
+  invoiceFooterNote: 'invoiceFooterNote',
   smsEnabled: 'smsEnabled',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -367,6 +445,9 @@ exports.Prisma.ZoneScalarFieldEnum = {
   id: 'id',
   settingsId: 'settingsId',
   name: 'name',
+  description: 'description',
+  coverageAreas: 'coverageAreas',
+  isActive: 'isActive',
   basePrice: 'basePrice',
   createdAt: 'createdAt'
 };
@@ -478,6 +559,15 @@ exports.Prisma.EscalationScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.EscalationEventScalarFieldEnum = {
+  id: 'id',
+  escalationId: 'escalationId',
+  changedById: 'changedById',
+  status: 'status',
+  resolution: 'resolution',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.PayrollRecordScalarFieldEnum = {
   id: 'id',
   riderId: 'riderId',
@@ -498,6 +588,8 @@ exports.Prisma.MaintenanceScalarFieldEnum = {
   id: 'id',
   vehicleId: 'vehicleId',
   type: 'type',
+  component: 'component',
+  replacementDate: 'replacementDate',
   description: 'description',
   cost: 'cost',
   mileageAtService: 'mileageAtService',
@@ -509,6 +601,14 @@ exports.Prisma.MaintenanceScalarFieldEnum = {
   notes: 'notes',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CustomerServiceCoverageScalarFieldEnum = {
+  id: 'id',
+  staffUserId: 'staffUserId',
+  customerId: 'customerId',
+  assignedById: 'assignedById',
+  createdAt: 'createdAt'
 };
 
 exports.Prisma.CustomerPickupLocationScalarFieldEnum = {
@@ -632,6 +732,13 @@ exports.PackageStatus = exports.$Enums.PackageStatus = {
   ON_HOLD: 'ON_HOLD'
 };
 
+exports.CustomerOrderStatus = exports.$Enums.CustomerOrderStatus = {
+  RECEIVING: 'RECEIVING',
+  RECONCILED: 'RECONCILED',
+  COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED'
+};
+
 exports.FailedDeliveryReason = exports.$Enums.FailedDeliveryReason = {
   RECIPIENT_NOT_AVAILABLE: 'RECIPIENT_NOT_AVAILABLE',
   WRONG_ADDRESS: 'WRONG_ADDRESS',
@@ -665,6 +772,10 @@ exports.PaymentStatus = exports.$Enums.PaymentStatus = {
 exports.ExpenseCategory = exports.$Enums.ExpenseCategory = {
   FUEL: 'FUEL',
   MAINTENANCE: 'MAINTENANCE',
+  TYRES: 'TYRES',
+  SERVICING: 'SERVICING',
+  PARTS: 'PARTS',
+  TOLL_PARKING: 'TOLL_PARKING',
   RIDER_COMPENSATION: 'RIDER_COMPENSATION',
   OFFICE: 'OFFICE',
   MARKETING: 'MARKETING',
@@ -736,7 +847,10 @@ exports.Prisma.ModelName = {
   Customer: 'Customer',
   Recipient: 'Recipient',
   Package: 'Package',
+  CustomerOrder: 'CustomerOrder',
+  DeliveryOutcomeCorrection: 'DeliveryOutcomeCorrection',
   PackageStatusEvent: 'PackageStatusEvent',
+  DeliveryAttempt: 'DeliveryAttempt',
   FailureReasonCode: 'FailureReasonCode',
   DispatchManifest: 'DispatchManifest',
   Assignment: 'Assignment',
@@ -744,6 +858,8 @@ exports.Prisma.ModelName = {
   Payment: 'Payment',
   PaymentCorrection: 'PaymentCorrection',
   Expense: 'Expense',
+  ExpenseCategoryOption: 'ExpenseCategoryOption',
+  CustomerAccountAdjustment: 'CustomerAccountAdjustment',
   SystemSettings: 'SystemSettings',
   Zone: 'Zone',
   PricingMatrix: 'PricingMatrix',
@@ -754,8 +870,10 @@ exports.Prisma.ModelName = {
   CODRemittance: 'CODRemittance',
   CustomerInteraction: 'CustomerInteraction',
   Escalation: 'Escalation',
+  EscalationEvent: 'EscalationEvent',
   PayrollRecord: 'PayrollRecord',
   Maintenance: 'Maintenance',
+  CustomerServiceCoverage: 'CustomerServiceCoverage',
   CustomerPickupLocation: 'CustomerPickupLocation',
   CustomerPricingOverride: 'CustomerPricingOverride'
 };

@@ -2,32 +2,41 @@ import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards, Request } 
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PortalService } from './portal.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '@cityrider/types';
 
 @ApiTags('Portal')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.CUSTOMER)
 @Controller('portal')
 export class PortalController {
   constructor(private readonly portalService: PortalService) {}
 
   @Get('dashboard')
   getDashboard(@Request() req: any) {
-    return this.portalService.getDashboard(req.user.email);
+    return this.portalService.getDashboard(req.user.id);
   }
 
   @Post('delivery-requests')
   createDeliveryRequest(@Body() dto: any, @Request() req: any) {
-    return this.portalService.createDeliveryRequest(req.user.email, dto);
+    return this.portalService.createDeliveryRequest(req.user.id, dto);
   }
 
   @Get('invoices')
   getInvoices(@Request() req: any) {
-    return this.portalService.getInvoices(req.user.email);
+    return this.portalService.getInvoices(req.user.id);
+  }
+
+  @Get('statement')
+  getStatement(@Request() req: any) {
+    return this.portalService.getStatement(req.user.id);
   }
 
   @Patch('packages/:id/reschedule')
   reschedulePackage(@Param('id') id: string, @Body() dto: { requestedDate?: string }, @Request() req: any) {
-    return this.portalService.reschedulePackage(req.user.email, id, dto.requestedDate);
+    return this.portalService.reschedulePackage(req.user.id, id, dto.requestedDate);
   }
 
   @Get('packages')
@@ -39,7 +48,7 @@ export class PortalController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.portalService.getPackages(req.user.email, {
+    return this.portalService.getPackages(req.user.id, {
       status,
       from,
       to,

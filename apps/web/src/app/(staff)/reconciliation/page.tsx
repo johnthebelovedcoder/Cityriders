@@ -110,7 +110,7 @@ export default function ReconciliationPage() {
                 const rider = pkg.assignments?.[0]?.rider;
                 const riderName = rider ? `${rider.user.firstName} ${rider.user.lastName}` : '—';
                 const deliveredAt = pkg.updatedAt
-                  ? new Date(pkg.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                  ? new Date(pkg.updatedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                   : '—';
                 const isConfirming = confirming === pkg.id;
 

@@ -2,12 +2,80 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
 import { InvoiceStatus, BillingCycle, PackageStatus } from '@cityrider/database';
+import { AuditService } from '../audit/audit.service';
+import { randomUUID } from 'node:crypto';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const PDFDocument = require('pdfkit') as typeof import('pdfkit');
 
 @Injectable()
 export class InvoicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+
+  async listPaymentProofs(invoiceId: string) {
+    await this.prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { id: true } });
+    return this.prisma.$queryRaw<any[]>`SELECT p."id", p."fileName" AS "filename", p."uploadedAt", CONCAT(u."firstName", ' ', u."lastName") AS "uploadedBy" FROM "invoice_payment_proofs" p JOIN "users" u ON u."id" = p."uploadedById" WHERE p."invoiceId" = ${invoiceId} ORDER BY p."uploadedAt" DESC`;
+  }
+
+  async uploadPaymentProof(invoiceId: string, file: Express.Multer.File | undefined, uploadedById: string) {
+    if (!file) throw new BadRequestException('Choose a receipt file to upload');
+    await this.prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { id: true } });
+    const mimeType = this.detectReceiptMimeType(file.buffer);
+    if (!mimeType) throw new BadRequestException('Receipt must be a valid PDF, JPEG, PNG, or WebP file');
+    const filename = (file.originalname || 'payment-proof').replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 180);
+    const [proof] = await this.prisma.$queryRaw<any[]>`INSERT INTO "invoice_payment_proofs" ("id", "invoiceId", "fileName", "mimeType", "fileData", "uploadedById") VALUES (${randomUUID()}, ${invoiceId}, ${filename}, ${mimeType}, ${file.buffer}, ${uploadedById}) RETURNING "id", "fileName" AS "filename", "uploadedAt"`;
+    return proof;
+  }
+
+  async getPaymentProof(invoiceId: string, proofId: string) {
+    const [proof] = await this.prisma.$queryRaw<Array<{ fileName: string; mimeType: string; fileData: Buffer }>>`SELECT "fileName", "mimeType", "fileData" FROM "invoice_payment_proofs" WHERE "invoiceId" = ${invoiceId} AND "id" = ${proofId}`;
+    if (!proof) throw new NotFoundException('Payment proof not found');
+    return { filename: proof.fileName, mimeType: proof.mimeType, data: Buffer.from(proof.fileData) };
+  }
+
+  private detectReceiptMimeType(data: Buffer): string | null {
+    if (data.subarray(0, 5).toString() === '%PDF-') return 'application/pdf';
+    if (data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'image/png';
+    if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return 'image/jpeg';
+    if (data.length >= 12 && data.subarray(0, 4).toString() === 'RIFF' && data.subarray(8, 12).toString() === 'WEBP') return 'image/webp';
+    return null;
+  }
+
+  async getCustomerStatement(customerId: string) {
+    const customer = await this.prisma.customer.findUnique({ where: { id: customerId }, select: { id: true, name: true, email: true } });
+    if (!customer) throw new NotFoundException('Customer not found');
+    const [invoices, adjustments] = await Promise.all([
+      this.prisma.invoice.findMany({ where: { customerId, status: { not: 'VOID' } }, include: { payments: true }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.$queryRaw<any[]>`SELECT a."id", a."amount", a."reason", a."effectiveAt" FROM "customer_account_adjustments" a WHERE a."customerId" = ${customerId}`,
+    ]);
+    const transactions: Array<{ date: Date; type: string; reference: string | null; description: string; debit: number; credit: number }> = invoices.flatMap((invoice) => [
+      { date: invoice.createdAt, type: 'INVOICE', reference: invoice.invoiceNumber, description: `Invoice ${invoice.invoiceNumber}`, debit: Number(invoice.totalAmount), credit: 0 },
+      ...invoice.payments.map((payment) => ({ date: payment.recordedAt, type: 'PAYMENT', reference: payment.reference, description: `Payment for ${invoice.invoiceNumber}`, debit: 0, credit: Number(payment.amount) })),
+    ]);
+    for (const adjustment of adjustments) {
+      const amount = Number(adjustment.amount);
+      transactions.push({ date: adjustment.effectiveAt, type: amount < 0 ? 'CREDIT' : 'ADJUSTMENT', reference: adjustment.id, description: adjustment.reason, debit: amount > 0 ? amount : 0, credit: amount < 0 ? Math.abs(amount) : 0 });
+    }
+    transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let balance = 0;
+    const rows = transactions.map((row) => {
+      balance += row.debit - row.credit;
+      return { ...row, balance };
+    });
+    return { customer, openingBalance: 0, closingBalance: balance, rows };
+  }
+
+  async recordCustomerAdjustment(customerId: string, input: { amount: number; reason: string }, recordedById: string) {
+    if (!Number.isFinite(Number(input.amount)) || Number(input.amount) === 0) throw new BadRequestException('Adjustment amount must be a non-zero number');
+    if (!input.reason?.trim()) throw new BadRequestException('Adjustment reason is required');
+    const customer = await this.prisma.customer.findUnique({ where: { id: customerId }, select: { id: true } });
+    if (!customer) throw new NotFoundException('Customer not found');
+    const [adjustment] = await this.prisma.$queryRaw<any[]>`
+      INSERT INTO "customer_account_adjustments" ("id", "customerId", "amount", "reason", "recordedById", "createdAt", "effectiveAt")
+      VALUES (${randomUUID()}, ${customerId}, ${Number(input.amount)}, ${input.reason.trim()}, ${recordedById}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *
+    `;
+    this.audit.log({ userId: recordedById, action: 'CREATE', entity: 'CustomerAccountAdjustment', entityId: adjustment.id, newValue: { customerId, amount: Number(input.amount), reason: input.reason.trim() } }).catch(() => void 0);
+    return adjustment;
+  }
 
   findAll(query: { customerId?: string; status?: string; page?: number; limit?: number } = {}) {
     const { customerId, status, page = 1, limit = 25 } = query;
@@ -38,16 +106,28 @@ export class InvoicesService {
     });
   }
 
-  async create(customerId: string, createdById: string, opts: { notes?: string; dueDays?: number } = {}) {
+  async create(customerId: string, createdById: string, opts: { notes?: string; dueDays?: number; dueDate?: string; periodStart?: string; periodEnd?: string } = {}) {
     const customer = await this.prisma.customer.findUniqueOrThrow({ where: { id: customerId } });
 
     const now = new Date();
-    const periodEnd = now;
-    const periodStart = new Date(now);
-    if (customer.billingCycle === BillingCycle.WEEKLY) {
-      periodStart.setDate(now.getDate() - 7);
+    const periodEnd = opts.periodEnd ? new Date(`${opts.periodEnd}T23:59:59.999`) : new Date(now);
+    let periodStart: Date;
+    if (opts.periodStart) {
+      periodStart = new Date(`${opts.periodStart}T00:00:00`);
+    } else if (customer.billingCycle === BillingCycle.DAILY) {
+      periodStart = new Date(periodEnd);
+      periodStart.setHours(0, 0, 0, 0);
+    } else if (customer.billingCycle === BillingCycle.WEEKLY) {
+      periodStart = new Date(periodEnd);
+      periodStart.setDate(periodEnd.getDate() - 6);
+      periodStart.setHours(0, 0, 0, 0);
+      periodStart.setDate(periodStart.getDate() - ((periodStart.getDay() + 6) % 7));
+    } else if (customer.billingCycle === BillingCycle.BI_WEEKLY) {
+      periodStart = new Date(periodEnd);
+      periodStart.setDate(periodEnd.getDate() - 13);
+      periodStart.setHours(0, 0, 0, 0);
     } else {
-      periodStart.setMonth(now.getMonth() - 1);
+      periodStart = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), 1);
     }
 
     // Find DELIVERED packages not yet invoiced in this billing period
@@ -56,7 +136,7 @@ export class InvoicesService {
         senderId: customerId,
         status: PackageStatus.DELIVERED,
         invoicedAt: null,
-        updatedAt: { gte: periodStart, lte: periodEnd },
+        statusHistory: { some: { status: PackageStatus.DELIVERED, createdAt: { gte: periodStart, lte: periodEnd } } },
       },
     });
 
@@ -74,11 +154,12 @@ export class InvoicesService {
     }));
 
     const subtotal = lineItems.reduce((s, i) => s + Number(i.lineTotal), 0);
-    const vatRate = 0.075;
+    const settings = await this.prisma.systemSettings.findUnique({ where: { id: 'default' }, select: { vatRate: true } });
+    const vatRate = Number(settings?.vatRate ?? 0);
     const vatAmount = subtotal * vatRate;
     const totalAmount = subtotal + vatAmount;
-    const dueDate = new Date(now);
-    dueDate.setDate(now.getDate() + (opts.dueDays ?? 14));
+    const dueDate = opts.dueDate ? new Date(opts.dueDate) : new Date(periodEnd);
+    if (!opts.dueDate) dueDate.setDate(dueDate.getDate() + (opts.dueDays ?? 14));
 
     const invoiceNumber = `INV-${Date.now()}`;
 
@@ -112,25 +193,20 @@ export class InvoicesService {
   }
 
   async recordPayment(invoiceId: string, dto: { amount: number; method: string; reference?: string; notes?: string }, recordedById: string) {
+    if (!Number.isFinite(Number(dto.amount)) || Number(dto.amount) <= 0) throw new BadRequestException('Payment amount must be greater than zero');
     const invoice = await this.prisma.invoice.findUniqueOrThrow({
       where: { id: invoiceId },
       include: { payments: true },
     });
 
-    await this.prisma.invoicePayment.create({
-      data: {
-        invoiceId,
-        amount: dto.amount,
-        method: dto.method as any,
-        reference: dto.reference,
-        notes: dto.notes,
-        recordedById,
-      },
-    });
-
-    // recalculate status
-    const totalPaid = invoice.payments.reduce((s, p) => s + Number(p.amount), 0) + dto.amount;
+    const paidBefore = invoice.payments.reduce((s, p) => s + Number(p.amount), 0);
     const total = Number(invoice.totalAmount);
+    if (paidBefore >= total) throw new BadRequestException('This invoice is already fully paid');
+    if (Number(dto.amount) > total - paidBefore) throw new BadRequestException('Payment exceeds the invoice outstanding balance');
+    await this.prisma.invoicePayment.create({
+      data: { invoiceId, amount: dto.amount, method: dto.method as any, reference: dto.reference, notes: dto.notes, recordedById },
+    });
+    const totalPaid = paidBefore + Number(dto.amount);
     let status: InvoiceStatus;
     if (totalPaid >= total) status = InvoiceStatus.PAID;
     else if (totalPaid > 0) status = InvoiceStatus.PARTIALLY_PAID;
@@ -228,26 +304,44 @@ export class InvoicesService {
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async runNightlyInvoiceGeneration() {
     const today = new Date();
+    const dateOnly = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const dayOfWeek = today.getDay(); // 0 = Sunday
     const dayOfMonth = today.getDate();
-
-    // weekly customers: generate every Monday (dayOfWeek === 1)
-    // monthly customers: generate on 1st of month
+    const daysSinceYearStart = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 1).getTime()) / 86_400_000);
+    const biWeeklyDue = dayOfWeek === 1 && Math.floor(daysSinceYearStart / 7) % 2 === 0;
     const weeklyDue = dayOfWeek === 1;
     const monthlyDue = dayOfMonth === 1;
-    if (!weeklyDue && !monthlyDue) return;
 
     const customers = await this.prisma.customer.findMany({
       where: {
         status: 'ACTIVE',
         paymentTerms: 'INVOICE',
-        billingCycle: weeklyDue && monthlyDue ? undefined : weeklyDue ? 'WEEKLY' : 'MONTHLY',
+        billingCycle: { in: [
+          ...(monthlyDue ? [BillingCycle.MONTHLY] : []),
+          ...(weeklyDue ? [BillingCycle.WEEKLY] : []),
+          ...(biWeeklyDue ? [BillingCycle.BI_WEEKLY] : []),
+          BillingCycle.DAILY,
+        ] },
       },
     });
 
     for (const customer of customers) {
       try {
-        await this.create(customer.id, 'system', {});
+        let start: Date;
+        let end: Date;
+        if (customer.billingCycle === BillingCycle.DAILY) {
+          end = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 23, 59, 59, 999);
+          start = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        } else if (customer.billingCycle === BillingCycle.WEEKLY || customer.billingCycle === BillingCycle.BI_WEEKLY) {
+          end = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1, 23, 59, 59, 999);
+          const days = customer.billingCycle === BillingCycle.BI_WEEKLY ? 13 : 6;
+          start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - days);
+          if (customer.billingCycle === BillingCycle.WEEKLY) start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+        } else {
+          end = new Date(today.getFullYear(), today.getMonth(), 0, 23, 59, 59, 999);
+          start = new Date(end.getFullYear(), end.getMonth(), 1);
+        }
+        await this.create(customer.id, 'system', { periodStart: dateOnly(start), periodEnd: dateOnly(end) });
       } catch {
         // skip customers with no uninvoiced packages
       }

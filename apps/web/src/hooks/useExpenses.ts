@@ -22,7 +22,7 @@ export function useExpenses(filters: ExpenseFilters = {}) {
 export function useCreateExpense(onSuccess?: () => void) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post('/expenses', data),
+    mutationFn: (data: FormData | Record<string, unknown>) => api.post('/expenses', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
     onSuccess: () => {
       toast.success('Expense recorded');
       qc.invalidateQueries({ queryKey: ['expenses'] });

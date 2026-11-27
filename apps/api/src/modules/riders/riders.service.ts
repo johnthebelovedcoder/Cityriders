@@ -1,13 +1,14 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class RidersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
-  findAll(search?: string) {
-    return this.prisma.rider.findMany({
+  async findAll(search?: string) {
+    const riders = await this.prisma.rider.findMany({
       where: search ? { user: { OR: [{ firstName: { contains: search, mode: 'insensitive' } }, { lastName: { contains: search, mode: 'insensitive' } }] } } : undefined,
       include: {
         user: { select: { id: true, firstName: true, lastName: true, email: true, phone: true } },
@@ -15,12 +16,16 @@ export class RidersService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    const profiles = await this.prisma.$queryRaw<Array<{ id: string; emergencyContact: string | null; dateJoined: Date }>>`SELECT "id", "emergencyContact", "dateJoined" FROM "riders"`;
+    const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+    return riders.map((rider) => ({ ...rider, ...(profileById.get(rider.id) ?? {}) }));
   }
 
   async findOne(id: string) {
     const r = await this.prisma.rider.findUnique({ where: { id }, include: { user: true } });
     if (!r) throw new NotFoundException(`Rider ${id} not found`);
-    return r;
+    const [profile] = await this.prisma.$queryRaw<Array<{ emergencyContact: string | null; dateJoined: Date }>>`SELECT "emergencyContact", "dateJoined" FROM "riders" WHERE "id" = ${id}`;
+    return { ...r, ...profile };
   }
 
   async getStats() {
@@ -39,7 +44,7 @@ export class RidersService {
     });
   }
 
-  async create(dto: { firstName: string; lastName: string; email: string; password: string; phone?: string; riderId?: string; vehicleType?: string; vehiclePlate?: string }) {
+  async create(dto: { firstName: string; lastName: string; email: string; password: string; phone?: string; riderId?: string; vehicleType?: string; vehiclePlate?: string; emergencyContact?: string; dateJoined?: string }, performedById?: string) {
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new BadRequestException('Email already in use');
 
@@ -48,11 +53,38 @@ export class RidersService {
       const user = await tx.user.create({
         data: { firstName: dto.firstName, lastName: dto.lastName, email: dto.email, password: hashed, phone: dto.phone, role: 'RIDER' },
       });
-      return tx.rider.create({
+      const rider = await tx.rider.create({
         data: { userId: user.id, riderId: dto.riderId, vehicleType: dto.vehicleType, vehiclePlate: dto.vehiclePlate },
         include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
       });
+      await tx.$executeRaw`UPDATE "riders" SET "emergencyContact" = ${dto.emergencyContact ?? null}, "dateJoined" = ${dto.dateJoined ? new Date(dto.dateJoined) : new Date()} WHERE "id" = ${rider.id}`;
+      if (performedById) this.audit.log({ userId: performedById, action: 'CREATE', entity: 'Rider', entityId: rider.id, newValue: { riderId: rider.riderId, emergencyContact: dto.emergencyContact, dateJoined: dto.dateJoined } }).catch(() => void 0);
+      return rider;
     });
+  }
+
+  async update(id: string, dto: { firstName?: string; lastName?: string; email?: string; phone?: string; vehicleType?: string; vehiclePlate?: string; emergencyContact?: string; dateJoined?: string }, performedById: string) {
+    const before = await this.findOne(id);
+    if (dto.email && dto.email !== before.user.email) {
+      const existing = await this.prisma.user.findUnique({ where: { email: dto.email }, select: { id: true } });
+      if (existing) throw new ConflictException('Email already in use');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: before.userId }, data: {
+        ...(dto.firstName !== undefined ? { firstName: dto.firstName } : {}),
+        ...(dto.lastName !== undefined ? { lastName: dto.lastName } : {}),
+        ...(dto.email !== undefined ? { email: dto.email } : {}),
+        ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
+      } });
+      await tx.rider.update({ where: { id }, data: {
+        ...(dto.vehicleType !== undefined ? { vehicleType: dto.vehicleType } : {}),
+        ...(dto.vehiclePlate !== undefined ? { vehiclePlate: dto.vehiclePlate } : {}),
+      } });
+      await tx.$executeRaw`UPDATE "riders" SET "emergencyContact" = COALESCE(${dto.emergencyContact ?? null}, "emergencyContact"), "dateJoined" = COALESCE(${dto.dateJoined ? new Date(dto.dateJoined) : null}, "dateJoined") WHERE "id" = ${id}`;
+    });
+    const updated = await this.findOne(id);
+    this.audit.log({ userId: performedById, action: 'UPDATE', entity: 'Rider', entityId: id, previousValue: { firstName: before.user.firstName, lastName: before.user.lastName, phone: before.user.phone, vehicleType: before.vehicleType, vehiclePlate: before.vehiclePlate }, newValue: { firstName: updated.user.firstName, lastName: updated.user.lastName, phone: updated.user.phone, vehicleType: updated.vehicleType, vehiclePlate: updated.vehiclePlate } }).catch(() => void 0);
+    return updated;
   }
 
   async updateStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {

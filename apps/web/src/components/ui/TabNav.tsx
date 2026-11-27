@@ -1,5 +1,7 @@
 'use client';
 
+import { SelectField } from './SelectField';
+
 type TabItem = {
   id: string;
   label: string;
@@ -17,15 +19,7 @@ export function TabNav({ tabs, active, onChange }: Props) {
     <>
       {/* Mobile: select dropdown */}
       <div className="sm:hidden">
-        <select
-          value={active}
-          onChange={e => onChange(e.target.value)}
-          className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          {tabs.map(({ id, label }) => (
-            <option key={id} value={id}>{label}</option>
-          ))}
-        </select>
+        <SelectField value={active} onChange={onChange} aria-label="Section" options={tabs.map(({ id, label }) => ({ value: id, label }))} />
       </div>
 
       {/* Desktop: horizontal underline tabs */}

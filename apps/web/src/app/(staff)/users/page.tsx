@@ -1,12 +1,13 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Mail01, Users01, CheckCircle, XCircle, Truck01 } from '@untitled-ui/icons-react';
+import { Plus, Users01, CheckCircle, XCircle, Truck01 } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
 import { UserCreateDrawer } from '@/components/users/UserCreateDrawer';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { SelectField } from '@/components/ui/SelectField';
 
 const ROLES = ['ADMINISTRATOR', 'MANAGER', 'DISPATCHER', 'ACCOUNTANT', 'RIDER'];
 const STATUSES = ['ACTIVE', 'INACTIVE'];
@@ -45,12 +46,6 @@ export default function UsersPage() {
       if (!(`${u.firstName} ${u.lastName} ${u.email}`.toLowerCase().includes(q))) return false;
     }
     return true;
-  });
-
-  const resendInvite = useMutation({
-    mutationFn: (id: string) => api.post(`/users/${id}/resend-invite`),
-    onSuccess: () => toast.success('Invitation email resent'),
-    onError: () => toast.error('Failed to resend invite'),
   });
 
   const updateMutation = useMutation({
@@ -111,16 +106,8 @@ export default function UsersPage() {
           placeholder="Search name or email…"
           className="h-10 flex-1 min-w-48 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
-        <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <option value="">All Roles</option>
-          {ROLES.map((r) => <option key={r}>{r}</option>)}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <option value="">All Statuses</option>
-          {STATUSES.map((s) => <option key={s}>{s}</option>)}
-        </select>
+        <SelectField value={roleFilter} onChange={setRoleFilter} placeholder="All roles" options={[{ value: '', label: 'All Roles' }, ...ROLES.map((role) => ({ value: role, label: role.replaceAll('_', ' ') }))]} aria-label="Filter by role" className="min-w-36" />
+        <SelectField value={statusFilter} onChange={setStatusFilter} placeholder="All statuses" options={[{ value: '', label: 'All Statuses' }, ...STATUSES.map((status) => ({ value: status, label: status }))]} aria-label="Filter by status" className="min-w-36" />
       </div>
 
       <div className="rounded-lg border bg-card shadow-sm overflow-hidden">
@@ -146,13 +133,7 @@ export default function UsersPage() {
                   <td className="px-4 py-3 text-muted-foreground">{u.email}</td>
                   <td className="px-4 py-3">
                     {draft ? (
-                      <select
-                        value={draft.role}
-                        onChange={(e) => setEditing((ed) => ({ ...ed, [u.id]: { ...draft, role: e.target.value } }))}
-                        className="h-8 rounded border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      >
-                        {ROLES.map((r) => <option key={r}>{r}</option>)}
-                      </select>
+                      <SelectField value={draft.role} onChange={(role) => setEditing((ed) => ({ ...ed, [u.id]: { ...draft, role } }))} options={ROLES.map((role) => ({ value: role, label: role.replaceAll('_', ' ') }))} aria-label="Edit user role" buttonClassName="h-8 rounded px-2 text-xs" />
                     ) : (
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleBadge[u.role] ?? 'bg-muted text-foreground'}`}>
                         {u.role}
@@ -161,13 +142,7 @@ export default function UsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     {draft ? (
-                      <select
-                        value={draft.status}
-                        onChange={(e) => setEditing((ed) => ({ ...ed, [u.id]: { ...draft, status: e.target.value } }))}
-                        className="h-8 rounded border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      >
-                        {STATUSES.map((s) => <option key={s}>{s}</option>)}
-                      </select>
+                      <SelectField value={draft.status} onChange={(status) => setEditing((ed) => ({ ...ed, [u.id]: { ...draft, status } }))} options={STATUSES.map((status) => ({ value: status, label: status }))} aria-label="Edit user status" buttonClassName="h-8 rounded px-2 text-xs" />
                     ) : (
                       <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadge[u.status] ?? 'bg-muted text-foreground'}`}>
                         {u.status}
@@ -175,7 +150,7 @@ export default function UsersPage() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
-                    {new Date(u.createdAt).toLocaleDateString()}
+                    {new Date(u.createdAt).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {draft ? (
@@ -196,14 +171,6 @@ export default function UsersPage() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => resendInvite.mutate(u.id)}
-                          disabled={resendInvite.isPending}
-                          title="Resend invitation email"
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                        >
-                          <Mail01 className="h-3.5 w-3.5" />
-                        </button>
                         <button
                           onClick={() => startEdit(u)}
                           className="rounded-md border px-3 py-1 text-xs font-medium hover:bg-muted"

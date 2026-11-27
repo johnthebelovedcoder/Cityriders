@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, DownloadCloud01, ChevronDown, ChevronUp, Plus } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
+import { SelectField } from '@/components/ui/SelectField';
 
 const fmt = (n: number | string) => `₦${Number(n).toLocaleString()}`;
 
@@ -42,9 +43,7 @@ function RecordPaymentModal({ invoiceId, remaining, onClose }: { invoiceId: stri
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Method</label>
-            <select className={inp} value={form.method} onChange={e => setForm(f => ({ ...f, method: e.target.value }))}>
-              {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
-            </select>
+            <SelectField value={form.method} onChange={(method) => setForm((f) => ({ ...f, method }))} options={PAYMENT_METHODS.map((method) => ({ value: method, label: method.replace('_', ' ') }))} aria-label="Payment method" />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Reference <span className="text-muted-foreground font-normal">(optional)</span></label>
@@ -164,9 +163,9 @@ export default function InvoiceDetailPage() {
 
         <div className="grid grid-cols-2 gap-x-8 gap-y-3 px-6 py-5 sm:grid-cols-4 text-sm border-b">
           {[
-            { label: 'Issue Date', val: new Date(inv.createdAt).toLocaleDateString() },
-            { label: 'Due Date', val: new Date(inv.dueDate).toLocaleDateString() },
-            { label: 'Billing Period', val: `${new Date(inv.billingPeriodStart).toLocaleDateString()} – ${new Date(inv.billingPeriodEnd).toLocaleDateString()}` },
+            { label: 'Issue Date', val: new Date(inv.createdAt).toLocaleString() },
+            { label: 'Due Date', val: new Date(inv.dueDate).toLocaleString() },
+            { label: 'Billing Period', val: `${new Date(inv.billingPeriodStart).toLocaleString()} – ${new Date(inv.billingPeriodEnd).toLocaleString()}` },
             { label: 'Created By', val: `${inv.createdBy?.firstName} ${inv.createdBy?.lastName}` },
           ].map(({ label, val }) => (
             <div key={label}>
@@ -254,7 +253,7 @@ export default function InvoiceDetailPage() {
               <tbody>
                 {inv.payments.map((p: any) => (
                   <tr key={p.id} className="border-t">
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{new Date(p.recordedAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{new Date(p.recordedAt).toLocaleString()}</td>
                     <td className="px-4 py-2.5 font-mono font-semibold text-emerald-600">{fmt(p.amount)}</td>
                     <td className="px-4 py-2.5">{p.method.replace('_', ' ')}</td>
                     <td className="px-4 py-2.5 text-muted-foreground">{p.reference ?? '—'}</td>

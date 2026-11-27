@@ -85,8 +85,8 @@ export function StaffSidebar({ onClose, collapsed, onCollapse }: { onClose?: () 
     <aside className={`relative flex shrink-0 flex-col bg-sidebar transition-[width] duration-200 ${collapsed ? 'w-14' : 'w-56'}`}>
       {/* Logo + collapse toggle */}
       <div className="flex h-14 items-center gap-2.5 px-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary">
-          <span className="text-xs font-black tracking-tight text-sidebar-primary-foreground">CR</span>
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#AE1805]">
+          <span className="text-xs font-black tracking-tight text-white">CR</span>
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1 leading-none">
@@ -147,7 +147,7 @@ export function StaffSidebar({ onClose, collapsed, onCollapse }: { onClose?: () 
       {/* User */}
       <div className="border-t border-sidebar-border px-2 py-2">
         <div className={`flex items-center rounded-md py-2 ${collapsed ? 'justify-center px-1' : 'gap-2.5 px-3'}`}>
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-[11px] font-bold text-sidebar-primary-foreground">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#AE1805] text-[11px] font-bold text-white">
             {initials}
           </div>
           {!collapsed && (

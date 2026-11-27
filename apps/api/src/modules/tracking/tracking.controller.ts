@@ -2,6 +2,9 @@ import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TrackingService } from './tracking.service';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '@cityrider/types';
 
 @ApiTags('Tracking')
 @Controller('track')
@@ -9,7 +12,8 @@ export class TrackingController {
   constructor(private readonly trackingService: TrackingService) {}
 
   @Get('active')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER, UserRole.DISPATCHER, UserRole.CEO_EXECUTIVE)
   @ApiOperation({ summary: 'Get all active deliveries for live tracking map' })
   getActive() {
     return this.trackingService.getActive();

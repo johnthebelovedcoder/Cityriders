@@ -23,7 +23,7 @@ export function usePayments(filters: PaymentFilters = {}) {
 export function useCreatePayment(onSuccess?: () => void) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Record<string, unknown>) => api.post('/payments', data),
+    mutationFn: (data: FormData | Record<string, unknown>) => api.post('/payments', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined),
     onSuccess: () => {
       toast.success('Payment recorded');
       qc.invalidateQueries({ queryKey: ['payments'] });
@@ -38,7 +38,7 @@ export function useRunSettlement() {
   return useMutation({
     mutationFn: () => api.post('/payments/settle', {}),
     onSuccess: () => {
-      toast.success('Settlement complete — rider remittances created');
+      toast.success('Pending payments settled');
       qc.invalidateQueries({ queryKey: ['payments'] });
     },
     onError: () => toast.error('Settlement failed'),

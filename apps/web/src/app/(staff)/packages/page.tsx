@@ -10,9 +10,11 @@ import { DispatchModal } from '@/components/packages/DispatchModal';
 import { BulkUploadButton } from '@/components/packages/BulkUploadButton';
 import { RegisterPackageModal } from '@/components/packages/RegisterPackageModal';
 import { PackageDetailDrawer } from '@/components/packages/PackageDetailDrawer';
+import { IntakeReconciliationPanel } from '@/components/packages/IntakeReconciliationPanel';
 import { PeriodFilter, usePeriodFilter } from '@/components/ui/PeriodFilter';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { MetricCard } from '@/components/ui/MetricCard';
+import { SelectField } from '@/components/ui/SelectField';
 
 const STATUS_BADGE: Record<string, string> = {
   REGISTERED: 'bg-gray-100 text-gray-700',
@@ -155,7 +157,7 @@ function PackagesContent() {
     const lines = [header, ...rows.map((p: any) => {
       const a = p.assignments?.find((x: any) => x.isActive);
       return [p.trackingNumber, p.sender?.name ?? '', p.recipient?.name ?? '', p.destCity ?? '', p.status,
-        a ? `${a.rider.user.firstName} ${a.rider.user.lastName}` : '', new Date(p.createdAt).toLocaleDateString()];
+        a ? `${a.rider.user.firstName} ${a.rider.user.lastName}` : '', new Date(p.createdAt).toLocaleString()];
     })];
     const csv = lines.map((r: unknown[]) => r.map((v: unknown) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const link = document.createElement('a');
@@ -217,6 +219,8 @@ function PackagesContent() {
         />
       </div>
 
+      <IntakeReconciliationPanel />
+
       {/* SLA alert banner */}
       {slaAlerts && slaAlerts.length > 0 && (
         <div className={`rounded-xl border p-4 ${slaAlerts.some((a: any) => a.isBreached) ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30' : 'border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30'}`}>
@@ -252,19 +256,7 @@ function PackagesContent() {
             >
               <Truck01 className="h-3.5 w-3.5" /> Assign to Rider
             </button>
-            <select
-              defaultValue=""
-              onChange={(e) => { if (!e.target.value) return; bulkStatus.mutate(e.target.value); e.target.value = ''; }}
-              disabled={bulkStatus.isPending}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
-            >
-              <option value="">Update Status…</option>
-              <option value="SORTED">Sorted</option>
-              <option value="DISPATCHED">Dispatched</option>
-              <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
-              <option value="ON_HOLD">On Hold</option>
-              <option value="RETURNED">Returned</option>
-            </select>
+            <SelectField value="" onChange={(status) => bulkStatus.mutate(status)} disabled={bulkStatus.isPending} placeholder="Update status…" options={[{ value: 'SORTED', label: 'Sorted' }, { value: 'DISPATCHED', label: 'Dispatched' }, { value: 'OUT_FOR_DELIVERY', label: 'Out for Delivery' }, { value: 'ON_HOLD', label: 'On Hold' }, { value: 'RETURNED', label: 'Returned' }]} aria-label="Update selected package status" className="w-40" buttonClassName="h-8 rounded-md px-2 text-xs" />
             <button
               onClick={exportCSV}
               className="inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium hover:bg-muted"
@@ -289,35 +281,9 @@ function PackagesContent() {
           placeholder="Search tracking number, sender, recipient"
           className="h-10 flex-1 min-w-48 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
-        <select
-          value={status}
-          onChange={(e) => { setStatus(e.target.value); setPage(1); try { localStorage.setItem('pkg-status', e.target.value); } catch {} }}
-          className="h-10 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <option value="">All Statuses</option>
-          <optgroup label="Phase 2">
-            <option value="PENDING">Pending</option>
-            <option value="COLLECTED">Collected</option>
-            <option value="RECEIVED_AT_OFFICE">Received at Office</option>
-            <option value="SORTED">Sorted</option>
-            <option value="DISPATCHED">Dispatched</option>
-            <option value="OUT_FOR_DELIVERY">Out for Delivery</option>
-            <option value="DELIVERED">Delivered</option>
-            <option value="FAILED">Failed</option>
-            <option value="RESCHEDULED">Rescheduled</option>
-            <option value="ON_HOLD">On Hold</option>
-          </optgroup>
-          <optgroup label="Legacy">
-            <option value="REGISTERED">Registered</option>
-            <option value="AWAITING_ASSIGNMENT">Awaiting Assignment</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="PICKED_UP">Picked Up</option>
-            <option value="IN_TRANSIT">In Transit</option>
-            <option value="DELIVERY_ATTEMPTED">Delivery Attempted</option>
-            <option value="RETURNED">Returned</option>
-            <option value="CANCELLED">Cancelled</option>
-          </optgroup>
-        </select>
+        <SelectField className="min-w-48" value={status} onChange={(value) => { setStatus(value); setPage(1); try { localStorage.setItem('pkg-status', value); } catch {} }} aria-label="Filter packages by status" options={[
+          { value: '', label: 'All Statuses' }, ...['PENDING', 'COLLECTED', 'RECEIVED_AT_OFFICE', 'SORTED', 'DISPATCHED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RESCHEDULED', 'ON_HOLD', 'REGISTERED', 'AWAITING_ASSIGNMENT', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERY_ATTEMPTED', 'RETURNED', 'CANCELLED'].map((value) => ({ value, label: value.replaceAll('_', ' ') })),
+        ]} />
       </div>
 
       <div className="rounded-lg border bg-card">
@@ -415,7 +381,7 @@ function PackagesContent() {
                     <td className="px-4 py-3 text-muted-foreground">
                       {activeAssignment ? `${activeAssignment.rider.user.firstName} ${activeAssignment.rider.user.lastName}` : '-'}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{new Date(pkg.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{new Date(pkg.createdAt).toLocaleString()}</td>
                   </tr>
                 );
               })}

@@ -3,6 +3,9 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaystackService } from './paystack.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { UserRole } from '@cityrider/types';
 
 @ApiTags('Paystack')
 @Controller('paystack')
@@ -14,7 +17,8 @@ export class PaystackController {
 
   @Post('initialize')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER, UserRole.ACCOUNTANT)
   @ApiOperation({ summary: 'Initialize a Paystack payment' })
   async initialize(@Body() body: { email: string; amount: number; packageId?: string; customerId?: string }, @Request() req: any) {
     const reference = `CR-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
@@ -28,7 +32,8 @@ export class PaystackController {
 
   @Get('verify/:reference')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER, UserRole.ACCOUNTANT)
   @ApiOperation({ summary: 'Verify a Paystack payment and record it' })
   async verify(@Param('reference') reference: string, @Request() req: any) {
     const tx = await this.paystackService.verify(reference);
