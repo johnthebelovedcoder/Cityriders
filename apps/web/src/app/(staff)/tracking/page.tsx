@@ -8,6 +8,8 @@ import { api } from '@/lib/api';
 import { useTrackingSocket } from '@/hooks/use-tracking-socket';
 import { MetricCard } from '@/components/ui/MetricCard';
 
+const IS_MOCK = !process.env.NEXT_PUBLIC_API_URL;
+
 const STATUS_CLS: Record<string, string> = {
   IN_TRANSIT: 'bg-amber-100 text-amber-700',
   PICKED_UP: 'bg-indigo-100 text-indigo-700',
@@ -55,6 +57,7 @@ export default function TrackingPage() {
   const { isConnected } = useTrackingSocket({
     onStatus: handleStatusUpdate,
     onUpdate: (live) => qc.setQueryData(['tracking-active'], live),
+    enabled: !IS_MOCK,
   });
 
   // Track connection state for the status badge
