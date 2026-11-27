@@ -12,10 +12,11 @@ export function IntakeReconciliationPanel() {
   const [receivedCounts, setReceivedCounts] = useState<Record<string, string>>({});
   const [pickupIds, setPickupIds] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const { data: orders = [], isLoading } = useQuery({
+  const { data: ordersRaw, isLoading } = useQuery({
     queryKey: ['package-orders'],
     queryFn: () => api.get('/packages/orders').then((response) => response.data as any[]),
   });
+  const orders: any[] = ordersRaw ?? [];
   const reconcile = useMutation({
     mutationFn: ({ id, expectedPackageCount, receivedPackageCount, discrepancyNote }: { id: string; expectedPackageCount: number; receivedPackageCount: number; discrepancyNote?: string }) =>
       api.patch(`/packages/orders/${id}/intake-reconciliation`, { expectedPackageCount, receivedPackageCount, discrepancyNote }),

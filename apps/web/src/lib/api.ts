@@ -1474,7 +1474,7 @@ function mockAdapter(config: any): Promise<any> {
   }
 
   // Dynamic individual GET for packages (falls back to packages list when no MOCK_DB entry)
-  const STATIC_PKG_PATHS = new Set(['stats', 'kanban', 'sla-alerts', 'reconciliation', 'bulk-status']);
+  const STATIC_PKG_PATHS = new Set(['stats', 'kanban', 'sla-alerts', 'reconciliation', 'bulk-status', 'orders']);
   if (method === 'get' && /^\/packages\/[^/]+$/.test(path)) {
     const pkgId = path.split('/')[2];
     if (!STATIC_PKG_PATHS.has(pkgId)) {
