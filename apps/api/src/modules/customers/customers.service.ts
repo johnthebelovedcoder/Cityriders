@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async findAll(search?: string, paymentTerms?: string) {
     const customers = await this.prisma.customer.findMany({
@@ -101,5 +105,38 @@ export class CustomersService {
   async archive(id: string) {
     await this.findOne(id);
     return this.prisma.customer.update({ where: { id }, data: { status: 'SUSPENDED' } });
+  }
+
+  async sendPortalInvite(id: string, host?: string) {
+    const customer = await this.prisma.customer.findUnique({ where: { id } });
+    if (!customer) throw new NotFoundException('Customer not found');
+    if (!customer.email) throw new BadRequestException('Customer has no email address on file');
+
+    const tokenPayload = Buffer.from(JSON.stringify({
+      customerId: id,
+      email: customer.email,
+      name: customer.name,
+      exp: Date.now() + 48 * 3600 * 1000,
+    })).toString('base64');
+
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const appUrl = process.env.APP_URL ?? (host ? `${protocol}://${host.replace('/api/v1', '')}` : 'http://localhost:3000');
+    const inviteUrl = `${appUrl}/accept-invite?token=${encodeURIComponent(tokenPayload)}`;
+
+    if (this.notifications.isEmailConfigured) {
+      await this.notifications.sendEmail(
+        customer.email,
+        'Your CityRider customer portal invitation',
+        `<div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
+          <h2 style="color:#AE1805">CityRider Portal Invitation</h2>
+          <p>Hi <strong>${customer.name}</strong>,</p>
+          <p>You've been invited to access the CityRider customer portal where you can track shipments and manage your account.</p>
+          <p><a href="${inviteUrl}" style="display:inline-block;background:#FFB217;color:#000;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600">Create your account</a></p>
+          <p style="color:#666;font-size:13px">This link expires in 48 hours.</p>
+        </div>`,
+      );
+    }
+
+    return { inviteUrl, sentTo: customer.email };
   }
 }

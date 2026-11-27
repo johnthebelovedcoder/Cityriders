@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Param, Body, Query, UseGuards, HttpCode, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CustomerPricingService } from './customer-pricing.service';
@@ -33,4 +33,8 @@ export class CustomersController {
   @Get(':id/pricing') getPricing(@Param('id') id: string) { return this.customerPricingService.getOverride(id); }
   @Put(':id/pricing') @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER) upsertPricing(@Param('id') id: string, @Body() dto: any) { return this.customerPricingService.upsertOverride(id, dto); }
   @Delete(':id/pricing') @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER) @HttpCode(HttpStatus.NO_CONTENT) deletePricing(@Param('id') id: string) { return this.customerPricingService.deleteOverride(id); }
+
+  @Post(':id/portal-invite')
+  @Roles(UserRole.ADMINISTRATOR, UserRole.MANAGER, UserRole.DISPATCHER)
+  sendPortalInvite(@Param('id') id: string, @Request() req: any) { return this.customersService.sendPortalInvite(id, req.headers?.host); }
 }

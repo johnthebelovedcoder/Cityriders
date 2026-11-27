@@ -36,6 +36,7 @@ interface AuthContextValue {
   verifyTotp: (code: string) => Promise<void>;
   logout: () => void;
   enterDemoMode: () => void;
+  acceptInvite: (token: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -156,6 +157,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/dashboard');
   }, [router]);
 
+  const acceptInvite = useCallback(async (token: string, _password: string) => {
+    if (!process.env.NEXT_PUBLIC_API_URL) {
+      let tokenData: { customerId?: string; email?: string; name?: string; exp?: number } = {};
+      try { tokenData = JSON.parse(atob(decodeURIComponent(token))); } catch {
+        throw new Error('Invalid invite link');
+      }
+      if (!tokenData.email || !tokenData.customerId) throw new Error('Invalid invite link');
+      if (tokenData.exp && tokenData.exp < Date.now()) throw new Error('This invite link has expired');
+      const parts = (tokenData.name ?? 'Customer').split(' ');
+      const firstName = parts[0] ?? 'Customer';
+      const lastName = parts.slice(1).join(' ') || 'User';
+      const mockTok = makeMockToken({ sub: tokenData.customerId, email: tokenData.email, role: 'CUSTOMER', firstName, lastName });
+      localStorage.setItem('cr_access_token', mockTok);
+      localStorage.setItem('cr_refresh_token', mockTok);
+      localStorage.setItem('cr_mock_mode', '1');
+      setCookie('cr_session', '1');
+      setCookie('cr_role', 'CUSTOMER');
+      setUser({ id: tokenData.customerId, email: tokenData.email, role: 'CUSTOMER', firstName, lastName });
+      router.push('/portal');
+      return;
+    }
+    const { data } = await api.post('/auth/accept-invite', { token, password: _password });
+    localStorage.setItem('cr_access_token', data.accessToken);
+    localStorage.setItem('cr_refresh_token', data.refreshToken);
+    localStorage.removeItem('cr_mock_mode');
+    setCookie('cr_session', '1');
+    setCookie('cr_role', 'CUSTOMER');
+    const payload = decodeJwt(data.accessToken);
+    setUser({ id: payload.sub, email: payload.email, role: 'CUSTOMER', firstName: data.firstName, lastName: data.lastName });
+    router.push('/portal');
+  }, [router]);
+
   const logout = useCallback(() => {
     localStorage.removeItem('cr_access_token');
     localStorage.removeItem('cr_refresh_token');
@@ -166,7 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/login';
   }, []);
 
-  return <AuthContext.Provider value={{ user, isLoading, login, verifyTotp, logout, enterDemoMode }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, isLoading, login, verifyTotp, logout, enterDemoMode, acceptInvite }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

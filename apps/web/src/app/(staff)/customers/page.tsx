@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Users01, Package, TrendUp01, Edit02, Trash01, AlertOctagon, CurrencyDollar } from '@untitled-ui/icons-react';
+import { Users01, Package, TrendUp01, Edit02, Trash01, AlertOctagon, CurrencyDollar, Mail01 } from '@untitled-ui/icons-react';
 import { api } from '@/lib/api';
 import { PeriodFilter, usePeriodFilter } from '@/components/ui/PeriodFilter';
 import { MetricCard } from '@/components/ui/MetricCard';
@@ -22,6 +22,7 @@ export default function CustomersPage() {
   const [editCustomer, setEditCustomer] = useState<any | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [pricingCustomer, setPricingCustomer] = useState<any | null>(null);
+  const [inviteModal, setInviteModal] = useState<{ customer: any; inviteUrl: string } | null>(null);
   const [pricingForm, setPricingForm] = useState({ baseRateFlat: '', baseRatePerKg: '', discountPercent: '', notes: '' });
   const { range, setRange } = usePeriodFilter('this-month');
 
@@ -123,6 +124,15 @@ export default function CustomersPage() {
     setPricingForm({ baseRateFlat: '', baseRatePerKg: '', discountPercent: '', notes: '' });
   }
 
+  const inviteMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/customers/${id}/portal-invite`).then((r) => r.data as { inviteUrl: string }),
+    onSuccess: (data, id) => {
+      const customer = (customers as any[])?.find((c: any) => c.id === id);
+      setInviteModal({ customer: customer ?? { id }, inviteUrl: data.inviteUrl });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Failed to generate invite'),
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/customers/${id}`),
     onSuccess: () => {
@@ -220,6 +230,14 @@ export default function CustomersPage() {
                       title="Pricing Override"
                     >
                       <CurrencyDollar className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); inviteMutation.mutate(c.id); }}
+                      disabled={inviteMutation.isPending && inviteMutation.variables === c.id}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-primary disabled:opacity-50"
+                      title="Invite to customer portal"
+                    >
+                      <Mail01 className="h-3.5 w-3.5" />
                     </button>
                     {deleteConfirmId === c.id ? (
                       <div className="flex items-center gap-1">
@@ -319,6 +337,66 @@ export default function CustomersPage() {
 
       {detailCustomerId && (
         <CustomerDetailDrawer customerId={detailCustomerId} onClose={() => setDetailCustomerId(null)} />
+      )}
+
+      {inviteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setInviteModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-primary/10 p-2.5 shrink-0">
+                <Mail01 className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-base">Portal Invite Link</h3>
+                <p className="text-sm text-muted-foreground">{inviteModal.customer.name}</p>
+              </div>
+            </div>
+
+            {inviteModal.customer.email ? (
+              <div className="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 px-4 py-2.5 text-sm text-green-700 dark:text-green-300">
+                With SMTP configured, this link is emailed to <span className="font-medium">{inviteModal.customer.email}</span> automatically.
+              </div>
+            ) : (
+              <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-4 py-2.5 text-sm text-amber-700 dark:text-amber-300">
+                No email on file — share this link manually.
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide">Invite Link</label>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={typeof window !== 'undefined' ? `${window.location.origin}${inviteModal.inviteUrl}` : inviteModal.inviteUrl}
+                  className="flex-1 h-9 rounded-md border bg-muted px-3 text-xs font-mono truncate"
+                />
+                <button
+                  onClick={() => {
+                    const url = typeof window !== 'undefined' ? `${window.location.origin}${inviteModal.inviteUrl}` : inviteModal.inviteUrl;
+                    navigator.clipboard?.writeText(url).catch(() => {});
+                    toast.success('Copied!');
+                  }}
+                  className="h-9 shrink-0 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Copy
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Link expires in 48 hours. The customer sets their password on this page.</p>
+            </div>
+
+            <div className="flex justify-end">
+              <button onClick={() => setInviteModal(null)} className="rounded-lg border px-4 py-2 text-sm font-medium hover:bg-muted">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Pricing Override Drawer */}

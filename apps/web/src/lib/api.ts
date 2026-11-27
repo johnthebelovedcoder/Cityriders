@@ -914,6 +914,17 @@ function mockAdapter(config: any): Promise<any> {
     return ok();
   }
 
+  // Customer portal invite
+  if (method === 'post' && /^\/customers\/[^/]+\/portal-invite$/.test(path)) {
+    const customerId = path.split('/')[2];
+    const customer = (MOCK_DB['get /customers'] as any[]).find((c: any) => c.id === customerId);
+    if (!customer) return Promise.reject({ response: { status: 404, data: { message: 'Customer not found' } } });
+    const tokenPayload = JSON.stringify({ customerId, email: customer.email ?? '', name: customer.name, exp: Date.now() + 48 * 3600 * 1000 });
+    const token = btoa(tokenPayload);
+    const inviteUrl = `/accept-invite?token=${encodeURIComponent(token)}`;
+    return ok({ inviteUrl, token, sentTo: customer.email });
+  }
+
   // Customer Pickup Locations
   if (method === 'get' && /^\/customers\/[^/]+\/pickup-locations$/.test(path)) {
     const cId = path.split('/')[2];
