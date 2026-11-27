@@ -82,6 +82,17 @@ const MOCK_DB: Record<string, any> = {
     { id: 'r1', status: 'ACTIVE', vehicleType: 'Motorcycle', vehiclePlate: 'LG-123-XY', zoneId: 'z1', zone: { id: 'z1', name: 'Lagos Island', basePrice: 1500 }, user: { firstName: 'Emeka', lastName: 'Obi' } },
     { id: 'r2', status: 'ACTIVE', vehicleType: 'Bicycle', vehiclePlate: null, zoneId: 'z2', zone: { id: 'z2', name: 'Victoria Island', basePrice: 1500 }, user: { firstName: 'Fatima', lastName: 'Musa' } },
   ],
+  'get /deliveries/my': [
+    {
+      id: 'da1', assignedAt: new Date(Date.now() - 3600000 * 2).toISOString(), updatedAt: new Date(Date.now() - 1800000).toISOString(), isActive: true,
+      package: { id: 'p1', trackingNumber: 'CRD-MK0000001', status: 'IN_TRANSIT', sender: { name: 'Alice Corp', phone: '+2348011111111', address: '10 Broad St, Lagos Island' }, recipient: { name: 'Bob Smith', phone: '+2348022222222', address: '12 Marina St, Yaba' }, destCity: 'Yaba', weight: 2.5, specialInstructions: 'Handle with care', updatedAt: new Date(Date.now() - 1800000).toISOString() },
+    },
+    {
+      id: 'da2', assignedAt: new Date(Date.now() - 3600000 * 5).toISOString(), updatedAt: new Date(Date.now() - 3600000 * 4).toISOString(), isActive: false,
+      package: { id: 'p3', trackingNumber: 'CRD-MK0000003', status: 'DELIVERED', sender: { name: 'Demo Sender', phone: '+2348033333333', address: '7 Rumuola Rd, PH' }, recipient: { name: 'Test User', phone: '+2348044444444', address: '15 Aba Rd, Port Harcourt' }, destCity: 'Port Harcourt', weight: 0.8, specialInstructions: null, updatedAt: new Date(Date.now() - 3600000 * 4).toISOString() },
+    },
+  ],
+
   'get /assignments': {
     data: [
       { id: 'a1', assignedAt: new Date().toISOString(), rider: { user: { firstName: 'Emeka', lastName: 'Obi' } }, package: { id: 'p1', trackingNumber: 'CRD-MK0000001', status: 'IN_TRANSIT', sender: { name: 'Alice Corp' }, recipient: { name: 'Bob Smith' } } },
