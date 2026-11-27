@@ -99,7 +99,6 @@ const MOCK_DB: Record<string, any> = {
     ],
     meta: { total: 1, page: 1, limit: 25, totalPages: 1 },
   },
-  'get /deliveries/my': [],
   'get /users/me': { id: 'mock-001', firstName: 'Admin', lastName: 'User', email: 'admin@cityrider.com', role: 'DISPATCHER' },
 
   // -- Phase 2: Payments --------------------------------------------------------
