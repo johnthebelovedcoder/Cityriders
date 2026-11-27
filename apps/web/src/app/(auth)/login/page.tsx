@@ -348,9 +348,10 @@ function LoginForm() {
           <details className="mt-3">
             <summary className="cursor-pointer text-xs text-amber-600 dark:text-amber-500">Real credentials</summary>
             <div className="mt-2 space-y-0.5 text-xs text-amber-700 dark:text-amber-400">
-              <p><span className="font-medium">Admin:</span> admin@cityrider.com / Admin1234!</p>
-              <p><span className="font-medium">Dispatcher:</span> dispatcher@cityrider.com / Admin1234!</p>
-              <p><span className="font-medium">Rider:</span> rider1@cityrider.com / Admin1234!</p>
+              <p><span className="font-medium">Admin:</span> admin@cityrider.com / admin123 <span className="opacity-70">(2FA: any 6 digits)</span></p>
+              <p><span className="font-medium">Dispatcher:</span> dispatcher@cityrider.com / dispatch123</p>
+              <p><span className="font-medium">Rider:</span> rider1@cityrider.com / rider123</p>
+              <p><span className="font-medium">Customer:</span> customer@demo.com / customer123</p>
             </div>
           </details>
         </div>
