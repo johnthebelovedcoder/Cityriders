@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Edit02, Trash01, Car01, AlertTriangle, CheckCircle, XCircle } from '@untitled-ui/icons-react';
+import { Plus, Edit02, Trash01, Car01, AlertTriangle, CheckCircle, XCircle, Eye } from '@untitled-ui/icons-react';
+import { VehicleDetailDrawer } from '@/components/vehicles/VehicleDetailDrawer';
 import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/Drawer';
 import { DateTimePicker } from '@/components/ui/DateTimePicker';
@@ -28,6 +29,7 @@ export default function VehiclesPage() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null);
+  const [viewVehicle, setViewVehicle] = useState<Vehicle | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -217,6 +219,9 @@ export default function VehiclesPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <button onClick={() => setViewVehicle(v)} title="View details" className="rounded-md p-1.5 text-primary hover:bg-muted">
+                            <Eye className="h-4 w-4" />
+                          </button>
                           <button onClick={() => openEdit(v)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
                             <Edit02 className="h-4 w-4" />
                           </button>
@@ -233,6 +238,9 @@ export default function VehiclesPage() {
           </div>
         )}
       </div>
+
+      {/* View Drawer */}
+      {viewVehicle && <VehicleDetailDrawer vehicle={viewVehicle} onClose={() => setViewVehicle(null)} />}
 
       {/* Create Drawer */}
       {showCreate && (

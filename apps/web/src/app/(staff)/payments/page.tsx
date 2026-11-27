@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CurrencyDollar, Clock, Wallet01, TrendUp01, Eye } from '@untitled-ui/icons-react';
 import { usePayments, useRunSettlement } from '@/hooks/usePayments';
 import { PaymentCreateDrawer } from '@/components/payments/PaymentCreateDrawer';
+import { PaymentDetailDrawer } from '@/components/payments/PaymentDetailDrawer';
 import { PeriodFilter, usePeriodFilter } from '@/components/ui/PeriodFilter';
 import { MetricCard } from '@/components/ui/MetricCard';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -28,6 +29,7 @@ function fmt(n: number) { return `${n.toLocaleString()}`; }
 
 export default function PaymentsPage() {
   const [showCreate, setShowCreate] = useState(false);
+  const [detailPayment, setDetailPayment] = useState<any | null>(null);
   const [search, setSearch] = useState('');
   const [type, setType] = useState('');
   const [status, setStatus] = useState('');
@@ -117,7 +119,7 @@ export default function PaymentsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/40 text-left">
-              {['Type', 'Amount', 'Method', 'Status', 'Reference', 'Entity', 'Date', 'Receipt'].map((h) => (
+              {['Type', 'Amount', 'Method', 'Status', 'Reference', 'Entity', 'Date', ''].map((h) => (
                 <th key={h} className="px-4 py-3 font-medium">{h}</th>
               ))}
             </tr>
@@ -146,8 +148,12 @@ export default function PaymentsPage() {
                   </div>
                 </td>
                 <td className="px-4 py-3">{p.customer?.name ?? (p.rider?.user ? `${p.rider.user.firstName} ${p.rider.user.lastName}` : '-')}</td>
-                <td className="px-4 py-3 text-muted-foreground">{new Date(p.createdAt).toLocaleString()}</td>
-                <td className="px-4 py-3">{p.hasReceipt && <button type="button" title="View receipt" aria-label="View payment receipt" className="rounded p-1.5 text-primary hover:bg-muted" onClick={async () => { try { const { data } = await api.get(`/payments/${p.id}/receipt`, { responseType: 'blob' }); const url = URL.createObjectURL(data); window.open(url, '_blank', 'noopener,noreferrer'); window.setTimeout(() => URL.revokeObjectURL(url), 60_000); } catch { window.alert('Could not open payment receipt'); } }}><Eye className="h-4 w-4" /></button>}</td>
+                <td className="px-4 py-3 text-muted-foreground">{new Date(p.paymentDate ?? p.createdAt).toLocaleString()}</td>
+                <td className="px-4 py-3">
+                  <button type="button" title="View details" aria-label="View payment details" className="rounded p-1.5 text-primary hover:bg-muted" onClick={() => setDetailPayment(p)}>
+                    <Eye className="h-4 w-4" />
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -155,6 +161,7 @@ export default function PaymentsPage() {
       </div>
 
       {showCreate && <PaymentCreateDrawer onClose={() => setShowCreate(false)} />}
+      {detailPayment && <PaymentDetailDrawer payment={detailPayment} onClose={() => setDetailPayment(null)} />}
     </div>
   );
 }

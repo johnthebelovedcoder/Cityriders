@@ -6,6 +6,7 @@ import { MoneyInput } from '@/components/ui/MoneyInput';
 import { PaystackButton } from './PaystackButton';
 import { Drawer } from '@/components/ui/Drawer';
 import { SelectField } from '@/components/ui/SelectField';
+import { DateTimePicker } from '@/components/ui/DateTimePicker';
 import { Paperclip, XClose } from '@untitled-ui/icons-react';
 
 const PAYMENT_TYPES = ['DeliveryFee', 'Credit', 'RiderRemittance', 'Refund'];
@@ -27,6 +28,7 @@ export function PaymentCreateDrawer({ onClose }: Props) {
     reference: '',
     notes: '',
     customerEmail: '',
+    paymentDate: new Date().toISOString(),
   });
   const [proofFile, setProofFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -49,7 +51,7 @@ export function PaymentCreateDrawer({ onClose }: Props) {
               onSuccess={(ref) => {
                 const { customerEmail: _ce, ...rest } = form;
                 const body = new FormData();
-                Object.entries({ ...rest, amount: parseFloat(form.amount), reference: ref, status: 'COMPLETED' }).forEach(([key, value]) => body.append(key, String(value ?? '')));
+                Object.entries({ ...rest, amount: parseFloat(form.amount), reference: ref, status: 'COMPLETED', paymentDate: form.paymentDate }).forEach(([key, value]) => body.append(key, String(value ?? '')));
                 if (proofFile) body.append('receipt', proofFile);
                 mutation.mutate(body);
               }}
@@ -58,7 +60,7 @@ export function PaymentCreateDrawer({ onClose }: Props) {
           ) : (
             <button
               disabled={!form.amount || mutation.isPending}
-              onClick={() => { const { customerEmail: _ce, ...rest } = form; const body = new FormData(); Object.entries({ ...rest, amount: parseFloat(form.amount), paymentDate: new Date().toISOString() }).forEach(([key, value]) => body.append(key, String(value ?? ''))); if (proofFile) body.append('receipt', proofFile); mutation.mutate(body); }}
+              onClick={() => { const { customerEmail: _ce, ...rest } = form; const body = new FormData(); Object.entries({ ...rest, amount: parseFloat(form.amount) }).forEach(([key, value]) => body.append(key, String(value ?? ''))); if (proofFile) body.append('receipt', proofFile); mutation.mutate(body); }}
               className="flex-1 rounded-md bg-primary py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
               {mutation.isPending ? 'Saving…' : 'Save'}
             </button>
@@ -85,6 +87,11 @@ export function PaymentCreateDrawer({ onClose }: Props) {
           <label className="text-sm font-medium">{FIELD_LABELS.reference}</label>
           <input value={form.reference} onChange={(e) => set('reference', e.target.value)} type="text"
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+        </div>
+
+        <div className="space-y-1 sm:col-span-2">
+          <label className="text-sm font-medium">Payment Date and Time *</label>
+          <DateTimePicker value={form.paymentDate} onChange={(v) => set('paymentDate', v)} aria-label="Payment date and time" />
         </div>
 
         <div className="space-y-1 sm:col-span-2">

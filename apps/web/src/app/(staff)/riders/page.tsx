@@ -12,6 +12,9 @@ import { MetricCard } from '@/components/ui/MetricCard';
 import { RiderDetailDrawer } from '@/components/riders/RiderDetailDrawer';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectField } from '@/components/ui/SelectField';
+
+const VEHICLE_TYPES = ['Motorcycle', 'Tricycle', 'Car', 'Van', 'Truck', 'Bicycle', 'Other'];
 
 const inp = 'flex h-11 w-full rounded-lg border border-input bg-background px-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
@@ -279,7 +282,7 @@ export default function RidersPage() {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide">Vehicle Type</label>
-              <input value={editVehicleType} onChange={(e) => setEditVehicleType(e.target.value)} className={inp} placeholder="e.g. Motorcycle" />
+              <SelectField value={editVehicleType} onChange={setEditVehicleType} placeholder="Select type" aria-label="Vehicle type" options={VEHICLE_TYPES.map((t) => ({ value: t, label: t }))} />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wide">Plate Number</label>
@@ -314,7 +317,6 @@ export default function RidersPage() {
               { label: 'Last Name *', key: 'lastName', required: true },
               { label: 'Email *', key: 'email', type: 'email', required: true },
               { label: 'Phone', key: 'phone', type: 'tel' },
-              { label: 'Vehicle Type', key: 'vehicleType' },
               { label: 'Plate Number', key: 'vehiclePlate' },
               { label: 'Emergency Contact', key: 'emergencyContact' },
               { label: 'Date Joined', key: 'dateJoined' },
@@ -324,6 +326,10 @@ export default function RidersPage() {
                 {key === 'dateJoined' ? <DateTimePicker value={(form as any)[key]} onChange={(value) => setForm((f) => ({ ...f, [key]: value }))} aria-label="Rider join date and time" /> : <input type={type ?? 'text'} required={required} value={(form as any)[key]} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} className={inp} />}
               </div>
             ))}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wide">Vehicle Type</label>
+              <SelectField value={form.vehicleType} onChange={(v) => setForm((f) => ({ ...f, vehicleType: v }))} placeholder="Select type" aria-label="Vehicle type" options={VEHICLE_TYPES.map((t) => ({ value: t, label: t }))} />
+            </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">Password will be auto-generated if left blank. Share it with the rider.</p>
         </Drawer>

@@ -8,6 +8,7 @@ import { api } from '@/lib/api';
 import { Drawer } from '@/components/ui/Drawer';
 import { DateTimePicker } from '@/components/ui/DateTimePicker';
 import { SelectField } from '@/components/ui/SelectField';
+import { MoneyInput } from '@/components/ui/MoneyInput';
 
 const MAINTENANCE_TYPES = ['Oil Change', 'Tire Replacement', 'Brake Service', 'Battery Replacement', 'Engine Repair', 'Transmission', 'Air Filter', 'Inspection', 'Insurance Renewal', 'Other'];
 const STATUS_OPTIONS = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
@@ -122,7 +123,7 @@ export default function MaintenancePage() {
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Cost (₦)</label>
-          <input type="number" value={form.cost} onChange={(e) => set('cost', e.target.value)} className={inp} placeholder="0" min={0} />
+          <MoneyInput value={form.cost} onChange={(v) => set('cost', v)} placeholder="0" />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide">Odometer at Service (km)</label>
