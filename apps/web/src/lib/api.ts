@@ -814,6 +814,8 @@ const MOCK_DB: Record<string, any> = {
 };
 
 function isMock() {
+  // Always use mock data when no real backend URL is configured at build time
+  if (!process.env.NEXT_PUBLIC_API_URL) return true;
   return typeof window !== 'undefined' && localStorage.getItem('cr_mock_mode') === '1';
 }
 
@@ -1552,10 +1554,13 @@ export const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
+  if (isMock()) {
+    config.adapter = mockAdapter;
+    return config;
+  }
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('cr_access_token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
-    if (isMock()) config.adapter = mockAdapter;
   }
   return config;
 });
